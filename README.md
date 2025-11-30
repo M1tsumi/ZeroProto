@@ -1,10 +1,6 @@
 # ZeroProto
 
-[![Crates.io](https://img.shields.io/crates/v/zeroproto.svg)](https://crates.io/crates/zeroproto)
-[![Documentation](https://docs.rs/zeroproto/badge.svg)](https://docs.rs/zeroproto)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-APACHE)
-[![Build Status](https://github.com/zeroproto/zeroproto/workflows/CI/badge.svg)](https://github.com/zeroproto/zeroproto/actions)
-[![Coverage](https://codecov.io/gh/zeroproto/zeroproto/branch/main/graph/badge.svg)](https://codecov.io/gh/zeroproto/zeroproto)
 
 [![Discord](https://img.shields.io/discord/1302036475148349453?label=Discord&logo=discord)](https://discord.gg/6nS2KqxQtj)
 
@@ -334,10 +330,7 @@ Thank you to their creators and communities for paving the way!
 
 ## Support
 
-- **Documentation**: [docs.rs/zeroproto](https://docs.rs/zeroproto)
-- **Issues**: [GitHub Issues](https://github.com/zeroproto/zeroproto/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/zeroproto/zeroproto/discussions)
-- **Discord**: [Join our Discord](https://discord.gg/6nS2KqxQtj)
+- **Discord**: [Join our Discord](https://discord.gg/6nS2KqxQtj) - Chat with the community and get help
 
 ---
 
