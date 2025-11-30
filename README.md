@@ -25,10 +25,10 @@ Add ZeroProto to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zeroproto = "0.1.0"
+zeroproto = "0.2.0"
 
 [build-dependencies]
-zeroproto-compiler = "0.1.0"
+zeroproto-compiler = "0.2.0"
 ```
 
 ### Define a Schema
