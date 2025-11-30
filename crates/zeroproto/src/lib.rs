@@ -11,14 +11,14 @@
 //! ```rust
 //! use zeroproto::{MessageReader, MessageBuilder};
 //!
-//! // Deserialize (zero-copy)
-//! let reader = MessageReader::new(&data)?;
-//! let field = reader.get_field::<u64>(0)?;
-//!
 //! // Serialize
 //! let mut builder = MessageBuilder::new();
-//! builder.set_field(0, 42u64);
+//! builder.set_scalar(0, 42u64)?;
 //! let data = builder.finish();
+//!
+//! // Deserialize (zero-copy)
+//! let reader = MessageReader::new(&data)?;
+//! let field: u64 = reader.get_scalar(0)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 

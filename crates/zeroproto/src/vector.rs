@@ -229,6 +229,9 @@ mod tests {
     use super::*;
     use crate::builder::MessageBuilder;
     use crate::reader::MessageReader;
+    
+    #[cfg(feature = "std")]
+    use std::vec;
 
     #[test]
     fn test_vector_basic_operations() {

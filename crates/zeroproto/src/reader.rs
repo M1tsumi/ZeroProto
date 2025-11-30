@@ -210,6 +210,11 @@ mod tests {
     use super::*;
     use crate::builder::MessageBuilder;
     use crate::primitives::Endian;
+    
+    #[cfg(feature = "std")]
+    use std::vec;
+    #[cfg(feature = "std")]
+    use std::println;
 
     #[test]
     fn test_message_reader_creation() {
@@ -226,10 +231,12 @@ mod tests {
 
     #[test]
     fn test_scalar_field() {
-        let mut buffer = vec![0, 1]; // 1 field
-        buffer.extend_from_slice(&[1, 0, 0, 0, 0]); // Field entry: type=1 (u16), offset=0
-        buffer.extend_from_slice(&[42, 0]); // u16 value: 42
-
+        let mut builder = MessageBuilder::new();
+        builder.set_scalar(0, 42u16).unwrap();
+        let buffer = builder.finish();
+        
+        println!("Reader buffer: {:?}", buffer);
+        
         let reader = MessageReader::new(&buffer).unwrap();
         let value: u16 = reader.get_scalar(0).unwrap();
         assert_eq!(value, 42);

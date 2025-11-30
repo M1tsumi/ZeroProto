@@ -238,7 +238,7 @@ mod tests {
     fn test_valid_message() {
         let mut schema = Schema::new();
         let mut message = Message::new("User".to_string());
-        message.add_field(Field::new("id".to_string(), FieldType::Scalar(ScalarType::U64)));
+        message.add_field(Field::new("user_id".to_string(), FieldType::Scalar(ScalarType::U64)));
         message.add_field(Field::new("name".to_string(), FieldType::Scalar(ScalarType::String)));
         schema.add_item(SchemaItem::Message(message));
 

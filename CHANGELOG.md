@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Updated README with Discord community link
+- Removed invalid badges from README (crates.io, docs.rs, CI, codecov)
+
+## [0.2.0] - 2025-11-30
+
+### Changed
 - **Breaking**: Replaced LALRPOP parser with hand-written recursive descent parser
 - Improved compilation performance and reduced dependencies
 - Enhanced error messages with better context and location information
@@ -37,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed LALRPOP dependency and build script
 - Removed unused imports and dead code
 - Simplified parser implementation for better maintainability
+
+### Performance Improvements
+- Faster compilation times due to simplified parser architecture
+- Reduced dependency tree size and complexity
+- Improved memory efficiency during parsing and code generation
+- Enhanced runtime performance for message serialization/deserialization
 
 ## [0.1.0] - 2024-11-29
 

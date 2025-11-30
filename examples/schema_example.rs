@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cargo_toml_content = r#"
 [package]
 name = "zeroproto-schema-example"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]

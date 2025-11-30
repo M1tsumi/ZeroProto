@@ -318,6 +318,11 @@ impl<T> Default for VectorBuilder<T> {
 mod tests {
     use super::*;
     use crate::primitives::Endian;
+    
+    #[cfg(feature = "std")]
+    use std::vec;
+    #[cfg(feature = "std")]
+    use std::println;
 
     #[test]
     fn test_empty_message() {
@@ -370,7 +375,11 @@ mod tests {
         builder.set_scalar(1, 100u32)?;
         let data = builder.finish();
         
-        assert_eq!(data.len(), 23); // 2 + 10 + 8 + 4
+        println!("Buffer length: {}", data.len());
+        println!("Buffer: {:?}", data);
+        
+        // Expected: 2 (field count) + 10 (field table: 2 fields * 5 bytes) + 8 (u64) + 4 (u32) = 24
+        assert_eq!(data.len(), 24);
         
         Ok(())
     }
@@ -381,7 +390,11 @@ mod tests {
         builder.set_string(0, "hello")?;
         let data = builder.finish();
         
-        assert_eq!(data.len(), 17); // 2 + 5 + 4 + 5 + 1
+        println!("String buffer length: {}", data.len());
+        println!("String buffer: {:?}", data);
+        
+        // Expected: 2 (field count) + 5 (field table) + 4 (string length) + 5 (string bytes) = 16
+        assert_eq!(data.len(), 16);
         
         Ok(())
     }

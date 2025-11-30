@@ -203,16 +203,19 @@ fn to_pascal_case(input: &str) -> String {
 /// Convert to snake_case
 fn to_snake_case(input: &str) -> String {
     let mut result = String::new();
-    let mut first = true;
+    let mut prev_char_was_upper = false;
 
-    for ch in input.chars() {
-        if ch.is_uppercase() && !first {
-            result.push('_');
+    for (i, ch) in input.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i > 0 && !prev_char_was_upper {
+                result.push('_');
+            }
             result.push(ch.to_ascii_lowercase());
+            prev_char_was_upper = true;
         } else {
-            result.push(ch.to_ascii_lowercase());
+            result.push(ch);
+            prev_char_was_upper = false;
         }
-        first = false;
     }
 
     // Handle edge cases
