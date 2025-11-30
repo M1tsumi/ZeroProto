@@ -1,0 +1,11 @@
+# Generated code
+src/generated/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# IDE
+.vscode/
+.idea/

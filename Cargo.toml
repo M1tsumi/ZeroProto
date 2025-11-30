@@ -1,0 +1,40 @@
+[workspace]
+members = [
+    "crates/zeroproto",
+    "crates/zeroproto-compiler", 
+    "crates/zeroproto-macros",
+    "crates/zeroproto-cli"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["ZeroProto Contributors"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/zeroproto/zeroproto"
+repository = "https://github.com/zeroproto/zeroproto"
+documentation = "https://docs.rs/zeroproto"
+keywords = ["serialization", "binary", "zero-copy", "messaging", "protocol"]
+categories = ["encoding", "development-tools", "data-structures"]
+rust-version = "1.75"
+
+[workspace.dependencies]
+zeroproto = { path = "crates/zeroproto", version = "0.1.0" }
+zeroproto-compiler = { path = "crates/zeroproto-compiler", version = "0.1.0" }
+zeroproto-macros = { path = "crates/zeroproto-macros", version = "0.1.0" }
+zeroproto-cli = { path = "crates/zeroproto-cli", version = "0.1.0" }
+
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.bench]
+opt-level = 3
+debug = true

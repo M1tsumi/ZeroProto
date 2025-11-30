@@ -1,0 +1,10 @@
+[package]
+name = "test-project"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+zeroproto = "0.1.0"
+
+[build-dependencies]
+zeroproto-compiler = "0.1.0"

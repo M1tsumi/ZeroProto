@@ -1,0 +1,57 @@
+# Generated code
+src/generated/
+target/generated/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test outputs
+test-results/
+coverage/
+
+# Benchmarks
+target/criterion/
+benches/target/
+
+# Documentation
+docs/book/
+target/doc/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Local development
+.env
+.local/
+
+# Build artifacts
+*.pdb
+*.dll
+*.so
+*.dylib
+
+# Package files
+*.tar.gz
+*.zip
+
+# Workspace specific
+crates/*/target/
+crates/*/Cargo.lock

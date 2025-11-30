@@ -1,0 +1,7 @@
+// Example schema for test-project project
+message User {
+    id: u64;
+    username: string;
+    email: string;
+    age: u8;
+}

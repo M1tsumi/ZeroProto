@@ -1,0 +1,28 @@
+// Example ZeroProto schema
+
+message User {
+    id: u64;
+    username: string;
+    email: string;
+    age: u8;
+    friends: [u64];
+    profile: Profile;
+}
+
+message Profile {
+    bio: string;
+    avatar_url: string;
+    settings: UserSettings;
+}
+
+message UserSettings {
+    theme: Theme;
+    notifications_enabled: bool;
+    max_friends: u32;
+}
+
+enum Theme {
+    Light = 0;
+    Dark = 1;
+    Auto = 2;
+}

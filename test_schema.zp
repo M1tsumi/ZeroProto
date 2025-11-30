@@ -1,0 +1,13 @@
+enum UserStatus {
+    Active = 1;
+    Inactive = 2;
+    Pending = 3;
+}
+
+message User {
+    user_id: u64;
+    name: string;
+    age: u32;
+    status: UserStatus;
+    tags: [string];
+}

@@ -1,0 +1,53 @@
+[package]
+name = "zeroproto"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+description = "Zero-copy binary serialization runtime library"
+readme = "../../README.md"
+
+[features]
+default = ["std"]
+std = []
+derive = ["zeroproto-macros"]
+
+[dependencies]
+zeroproto-macros = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+zeroproto-compiler = { workspace = true }
+
+[[bench]]
+name = "roundtrip"
+harness = false
+path = "../../benches/roundtrip.rs"
+
+[[example]]
+name = "basic_usage"
+path = "examples/basic_usage.rs"
+
+[[example]]
+name = "performance"
+path = "examples/performance.rs"
+
+[[example]]
+name = "schema_example"
+path = "examples/schema_example.rs"
+
+[[example]]
+name = "debug_usage"
+path = "examples/debug_usage.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
