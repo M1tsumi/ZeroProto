@@ -1,39 +1,44 @@
 # ZeroProto
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-APACHE)
-
 [![Discord](https://img.shields.io/discord/1302036475148349453?label=Discord&logo=discord)](https://discord.gg/6nS2KqxQtj)
 
-ZeroProto is a **zero-copy binary serialization format** designed for high-performance Rust applications. It provides schema-based code generation with compile-time type safety and runtime performance that rivals hand-optimized protocols.
+Hey there! If you're tired of slow serialization eating into your app's performance, you're in the right place. ZeroProto is a **zero-copy binary serialization library** built from the ground up for Rust developers who care about speed.
 
-## Features
+The idea is simple: instead of copying data around when you deserialize, ZeroProto reads directly from the original buffer. No allocations, no copying, just raw speed. And because everything is generated from schema files, you get full type safety at compile time.
 
-- **Zero-Copy Deserialization** - Read data directly from buffers without allocation
-- **Schema-Based Code Generation** - Define messages in `.zp` schema files
-- **Type-Safe API** - Generated Rust code with compile-time guarantees
-- **High Performance** - Optimized for speed with minimal overhead
-- **Memory Safe** - No unsafe code in public APIs
-- **no_std Support** - Works in embedded environments
-- **Cross-Platform** - Little-endian format for consistency
-- **Rich Type System** - Primitives, strings, bytes, vectors, and nested messages
+## Why ZeroProto?
 
-## Quick Start
+We built ZeroProto because existing solutions either sacrificed performance for convenience or were a pain to work with. Here's what makes it different:
+
+- **Zero-Copy Deserialization** - Your data stays where it is. We just read it in place.
+- **Schema-First Design** - Define your messages in `.zp` files, get type-safe Rust code.
+- **Compile-Time Safety** - Catch errors before your code even runs.
+- **Blazing Fast** - We're talking nanoseconds, not microseconds.
+- **Memory Safe** - No unsafe code in public APIs. Sleep well at night.
+- **Embedded Ready** - Full `no_std` support for resource-constrained environments.
+- **Cross-Platform** - Consistent little-endian format everywhere.
+- **Rich Types** - Primitives, strings, bytes, vectors, nested messages, enums—we've got you covered.
+
+## Getting Started
+
+Let's get you up and running in under 5 minutes.
 
 ### Installation
 
-Add ZeroProto to your `Cargo.toml`:
+Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zeroproto = "0.2.0"
+zeroproto = "0.3.0"
 
 [build-dependencies]
-zeroproto-compiler = "0.2.0"
+zeroproto-compiler = "0.3.0"
 ```
 
-### Define a Schema
+### Define Your Schema
 
-Create a `schemas/user.zp` file:
+Create a `schemas/user.zp` file. This is where you describe your data structures:
 
 ```zp
 message User {
@@ -64,9 +69,9 @@ enum Theme {
 }
 ```
 
-### Generate Code
+### Set Up Code Generation
 
-Create a `build.rs` file:
+Create a `build.rs` file in your project root. This tells Cargo to compile your schemas during the build process:
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -75,14 +80,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Use Generated Types
+### Use Your Generated Types
+
+Now for the fun part—actually using your types:
 
 ```rust
 mod generated;
 use generated::user::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a user
+    // Build a user message
     let mut builder = UserBuilder::new();
     builder.set_id(12345);
     builder.set_username("alice");
@@ -109,7 +116,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let user_data = builder.finish();
     
-    // Read the user (zero-copy!)
+    // Read it back—this is where the magic happens!
+    // No copying, no allocations. Just direct buffer access.
     let user = UserReader::from_slice(&user_data)?;
     println!("User: {}", user.username());
     println!("Email: {}", user.email());
@@ -133,31 +141,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-## Documentation
+## Learn More
 
-- [API Documentation](https://docs.rs/zeroproto)
-- [Binary Format Specification](docs/specifications.md)
-- [Schema Language Guide](docs/schema-guide.md)
-- [Performance Benchmarks](docs/benchmarks.md)
-- [Migration Guide](docs/migration.md)
+- [API Documentation](https://docs.rs/zeroproto) - Full API reference
+- [Binary Format Specification](docs/specifications.md) - How the wire format works
+- [Schema Language Guide](docs/schema-guide.md) - Everything about `.zp` files
+- [Performance Benchmarks](docs/benchmarks.md) - Numbers don't lie
+- [Migration Guide](docs/migration.md) - Upgrading between versions
 
-## Architecture
+## How It Works
 
-ZeroProto consists of several crates:
+ZeroProto is organized as a workspace with four crates:
 
-- **`zeroproto`** - Core runtime library with readers and builders
-- **`zeroproto-compiler`** - Schema compiler and code generator with hand-written recursive descent parser
-- **`zeroproto-macros`** - Procedural macros for derive support
-- **`zeroproto-cli`** - Command-line interface for development
+- **`zeroproto`** - The runtime library. Readers, builders, and all the core types.
+- **`zeroproto-compiler`** - Parses your `.zp` schemas and generates Rust code.
+- **`zeroproto-macros`** - Procedural macros for derive support.
+- **`zeroproto-cli`** - Command-line tool for compiling, watching, and validating schemas.
 
-### Compiler Pipeline
+### The Compilation Pipeline
 
-The compilation process follows these steps:
+When you compile a schema, here's what happens under the hood:
 
-1. **Parsing** - Hand-written recursive descent parser parses `.zp` schema files
-2. **Validation** - AST validation ensures schema correctness and type safety
-3. **IR Generation** - Abstract Syntax Tree is lowered to Intermediate Representation
-4. **Code Generation** - Rust code is generated from IR using `proc_macro2` and `quote`
+1. **Parsing** - A hand-written recursive descent parser reads your `.zp` files
+2. **Validation** - We check for errors, type mismatches, and reserved names
+3. **IR Generation** - The AST gets lowered to an intermediate representation
+4. **Code Generation** - Finally, we emit clean Rust code using `proc_macro2` and `quote`
 
 ### Binary Format
 
@@ -177,42 +185,44 @@ Each field entry contains:
 
 ## CLI Usage
 
-### Compile Schemas
+The CLI makes working with schemas a breeze.
+
+### Compiling Schemas
 
 ```bash
-# Compile a single schema file
+# Compile a single file
 zeroproto compile schemas/user.zp --output src/generated
 
-# Compile all schemas in a directory
+# Compile everything in a directory
 zeroproto compile schemas/ --output src/generated
 
-# Watch for changes and recompile
+# Watch mode—recompiles automatically when files change
 zeroproto watch schemas/ --output src/generated
 
-# Validate schemas without generating code
+# Just validate without generating code
 zeroproto check schemas/
 
-# Initialize a new project
+# Scaffold a new project
 zeroproto init my-project
 ```
 
-### Project Templates
+### Starting a New Project
 
 ```bash
-# Create a new ZeroProto project
+# Create a fresh ZeroProto project
 zeroproto init my-project --current-dir
 
-# This creates:
-# - Cargo.toml with dependencies
-# - build.rs for compilation
-# - schemas/ directory
-# - src/main.rs with example
+# You'll get:
+# - Cargo.toml with all dependencies configured
+# - build.rs ready to go
+# - schemas/ directory for your .zp files
+# - src/main.rs with a working example
 # - README.md with setup instructions
 ```
 
 ## Performance
 
-ZeroProto is designed for maximum performance:
+We obsess over performance so you don't have to. Here's how ZeroProto stacks up:
 
 | Operation | ZeroProto | Protobuf | FlatBuffers | MessagePack |
 |-----------|-----------|----------|-------------|-------------|
@@ -220,18 +230,18 @@ ZeroProto is designed for maximum performance:
 | Deserialize | 12 ns | 156 ns | 234 ns | 89 ns |
 | Memory Usage | 0 allocs | 2 allocs | 1 alloc | 3 allocs |
 
-*Benchmarks performed on Intel i7-9700K, Rust 1.75, message size ~100 bytes*
+*Benchmarks on Intel i7-9700K, Rust 1.75, ~100 byte messages*
 
-### Zero-Copy Benefits
+### Why Zero-Copy Matters
 
-- **No Allocation** - Deserialization doesn't allocate memory
-- **No Copying** - Data is read directly from input buffer
-- **Cache Friendly** - Sequential memory access patterns
-- **Predictable Performance** - Consistent timing regardless of data size
+- **No Allocations** - Deserialization doesn't touch the heap
+- **No Copying** - Data is read directly from the input buffer
+- **Cache Friendly** - Sequential memory access patterns keep the CPU happy
+- **Predictable Latency** - Consistent timing whether you're reading 10 bytes or 10MB
 
 ## Testing
 
-Run the test suite:
+We take testing seriously. Here's how to run the suite:
 
 ```bash
 # Run all tests
@@ -252,17 +262,17 @@ cargo clippy -- -D warnings
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We'd love your help making ZeroProto even better! Check out our [Contributing Guide](CONTRIBUTING.md) to get started.
 
 ### Development Setup
 
 ```bash
-# Clone the repository
+# Clone the repo
 git clone https://github.com/zeroproto/zeroproto.git
 cd zeroproto
 
-# Install development dependencies
-cargo install cargo-watch cargo-typst
+# Install dev dependencies
+cargo install cargo-watch cargo-tarpaulin
 
 # Run tests
 cargo test
@@ -273,67 +283,63 @@ cargo bench
 
 ### Code Style
 
-- Use `rustfmt` for formatting
-- Follow the official Rust style guide
-- Add documentation for all public APIs
-- Include examples in documentation
-- Write tests for new functionality
+We keep things consistent:
+
+- Format with `rustfmt`
+- Follow the Rust style guide
+- Document all public APIs
+- Include examples in docs
+- Write tests for new features
 
 ## Roadmap
 
-### Version 0.2.0 (Planned)
+Here's where we're headed. Want to help? Jump in!
 
-- [ ] Schema evolution support
-- [ ] Custom field attributes
-- [ ] Enum variant values
-- [ ] Default field values
-- [ ] Optional fields
-- [ ] Oneof fields
-- [ ] Map types
-- [ ] Schema validation improvements
+### Version 0.4.0 (Planned)
 
-### Version 0.3.0 (Planned)
-
-- [ ] Compression support
-- [ ] Streaming serialization
+- [ ] Streaming serialization for large messages
 - [ ] Async I/O support
-- [ ] Reflection API
-- [ ] Schema registry integration
-- [ ] Protocol adapters (HTTP, gRPC)
-- [ ] Language bindings (C++, Python, Go)
+- [ ] Compression (LZ4, Zstd)
+- [ ] Map types (`map<K, V>`)
+- [ ] Oneof/union fields
+- [ ] Reflection API for runtime introspection
 
-### Long-term Goals
+### Future Plans
 
-- [ ] WASM support
-- [ ] Database integration
-- [ ] Message routing
-- [ ] Distributed systems support
-- [ ] Real-time synchronization
-- [ ] Cloud-native features
+- [ ] Language bindings (C++, Python, Go, TypeScript)
+- [ ] WASM support for browser environments
+- [ ] Schema registry for versioned schemas
+- [ ] gRPC and HTTP protocol adapters
+- [ ] Database integration helpers
+- [ ] Real-time sync primitives
 
 ## License
 
-ZeroProto is licensed under the Apache License 2.0 or MIT License, at your choice.
+Dual-licensed under MIT or Apache 2.0—pick whichever works for you.
 
-See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for the details.
 
-## Acknowledgments
+## Standing on the Shoulders of Giants
 
-ZeroProto is inspired by existing serialization formats:
+ZeroProto wouldn't exist without inspiration from these amazing projects:
 
-- [Protocol Buffers](https://developers.google.com/protocol-buffers) - Schema evolution concepts
-- [FlatBuffers](https://google.github.io/flatbuffers/) - Zero-copy design
-- [Cap'n Proto](https://capnproto.org/) - Performance optimizations
-- [MessagePack](https://msgpack.org/) - Compact binary format
+- [Protocol Buffers](https://developers.google.com/protocol-buffers) - Schema evolution ideas
+- [FlatBuffers](https://google.github.io/flatbuffers/) - Zero-copy design principles
+- [Cap'n Proto](https://capnproto.org/) - Performance optimization techniques
+- [MessagePack](https://msgpack.org/) - Compact binary format concepts
 
-Thank you to their creators and communities for paving the way!
+Huge thanks to their creators and communities!
 
-## Support
+## Get Help
 
-- **Discord**: [Join our Discord](https://discord.gg/6nS2KqxQtj) - Chat with the community and get help
+Stuck? We're here to help:
+
+- **Discord**: [Join our community](https://discord.gg/6nS2KqxQtj) - Chat with other users and the maintainers
+- **GitHub Issues**: Report bugs or request features
+- **GitHub Discussions**: Ask questions and share ideas
 
 ---
 
 **ZeroProto** - Fast, Safe, Zero-Copy Serialization for Rust
 
-Made with ❤️ by the ZeroProto community
+Built with care by the ZeroProto community

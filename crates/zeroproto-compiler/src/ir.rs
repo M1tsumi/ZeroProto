@@ -28,6 +28,10 @@ pub struct IrField {
     pub field_type: IrFieldType,
     pub index: u16,
     pub offset_constant: String,
+    /// Whether this field is optional
+    pub optional: bool,
+    /// Default value for this field (as Rust code string)
+    pub default_value: Option<String>,
 }
 
 /// Intermediate representation of a field type
@@ -119,12 +123,17 @@ fn lower_message(message: &Message, enums: &[IrEnum]) -> IrMessage {
         .enumerate()
         .map(|(i, field)| {
             let field_type = lower_field_type(&field.field_type, enums);
+            let default_value = field.default_value.as_ref().map(|dv| {
+                lower_default_value(dv, &field.field_type)
+            });
             IrField {
                 name: field.name.clone(),
                 rust_name: to_snake_case(&field.name),
                 field_type,
                 index: i as u16,
                 offset_constant: format!("FIELD_{}_OFFSET", i),
+                optional: field.optional,
+                default_value,
             }
         })
         .collect();
@@ -135,6 +144,22 @@ fn lower_message(message: &Message, enums: &[IrEnum]) -> IrMessage {
         fields,
         reader_name,
         builder_name,
+    }
+}
+
+/// Convert a default value to Rust code
+fn lower_default_value(default: &crate::ast::DefaultValue, _field_type: &FieldType) -> String {
+    use crate::ast::DefaultValue;
+    
+    match default {
+        DefaultValue::Integer(val) => val.to_string(),
+        DefaultValue::Float(val) => {
+            // Ensure float literals have a decimal point
+            let s = val.to_string();
+            if s.contains('.') { s } else { format!("{}.0", s) }
+        }
+        DefaultValue::Bool(val) => val.to_string(),
+        DefaultValue::String(val) => format!("\"{}\"", val),
     }
 }
 

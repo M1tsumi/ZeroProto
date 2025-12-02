@@ -1,16 +1,18 @@
 # ZeroProto Binary Format Specification
 
-This document specifies the binary format used by ZeroProto for message serialization and deserialization.
+This document explains how ZeroProto encodes data on the wire. If you're just using ZeroProto, you don't need to read this - the library handles everything. But if you're curious about the internals, implementing a parser in another language, or debugging weird issues, read on!
 
-## Overview
+## The Big Picture
 
-ZeroProto uses a compact binary format designed for zero-copy deserialization. The format consists of:
+Every ZeroProto message has three parts:
 
-1. **Message Header** - Field count and field table
-2. **Field Table** - Type and offset information for each field
-3. **Payload Section** - Actual field data
+1. **Header** - How many fields are in this message
+2. **Field Table** - Where each field lives and what type it is
+3. **Payload** - The actual data
 
 ## Message Layout
+
+Here's what a message looks like in memory:
 
 ```
 +----------------------+---------------------------+
@@ -22,78 +24,89 @@ ZeroProto uses a compact binary format designed for zero-copy deserialization. T
 +--------------------------------------------------+
 ```
 
-### Message Header
+### The Header
 
-- **Field Count** (2 bytes): Number of fields in the message (0-65535)
-- **Field Table** (5 bytes × field_count): Array of field entries
+Just 2 bytes telling us how many fields to expect:
 
-### Field Table Entry
+- **Field Count** (u16): 0 to 65,535 fields per message
 
-Each field entry is 5 bytes:
+### The Field Table
+
+Each field gets a 5-byte entry:
 
 ```
 +------------------+------------------+
-| Type ID (u8)     | Offset (u32)     |
+| Type ID (1 byte) | Offset (4 bytes) |
 +------------------+------------------+
 ```
 
-- **Type ID** (1 byte): Primitive type identifier
-- **Offset** (4 bytes): Absolute offset from message start to field data
+- **Type ID**: What kind of data this is (see table below)
+- **Offset**: Where to find the data, measured from the start of the message
+
+This is what makes zero-copy possible - we can jump directly to any field without scanning through the whole message.
 
 ## Type IDs
 
-| Type ID | Type      | Description                     |
-|---------|-----------|---------------------------------|
-| 0       | u8        | 8-bit unsigned integer         |
-| 1       | u16       | 16-bit unsigned integer        |
-| 2       | u32       | 32-bit unsigned integer        |
-| 3       | u64       | 64-bit unsigned integer        |
-| 4       | i8        | 8-bit signed integer           |
-| 5       | i16       | 16-bit signed integer          |
-| 6       | i32       | 32-bit signed integer          |
-| 7       | i64       | 64-bit signed integer          |
-| 8       | f32       | 32-bit floating point          |
-| 9       | f64       | 64-bit floating point          |
-| 10      | bool      | Boolean value                  |
-| 11      | string    | UTF-8 string                   |
-| 12      | bytes     | Byte array                     |
-| 13      | message   | Nested message                 |
-| 14      | vector    | Vector of values               |
+Every field has a type ID that tells us how to read it:
 
-## Payload Encoding
+| ID | Type | Size | Notes |
+|----|------|------|-------|
+| 0 | u8 | 1 byte | Unsigned byte |
+| 1 | u16 | 2 bytes | Unsigned short |
+| 2 | u32 | 4 bytes | Unsigned int |
+| 3 | u64 | 8 bytes | Unsigned long |
+| 4 | i8 | 1 byte | Signed byte |
+| 5 | i16 | 2 bytes | Signed short |
+| 6 | i32 | 4 bytes | Signed int |
+| 7 | i64 | 8 bytes | Signed long |
+| 8 | f32 | 4 bytes | Float |
+| 9 | f64 | 8 bytes | Double |
+| 10 | bool | 1 byte | 0 = false, non-zero = true |
+| 11 | string | variable | Length-prefixed UTF-8 |
+| 12 | bytes | variable | Length-prefixed raw bytes |
+| 13 | message | variable | Nested ZeroProto message |
+| 14 | vector | variable | Array of values |
 
-### Scalar Types
+## How Data Is Encoded
 
-All scalar types use little-endian byte order:
+### Numbers (Scalars)
 
-- **u8, i8, bool**: 1 byte
-- **u16, i16**: 2 bytes
-- **u32, i32, f32**: 4 bytes  
-- **u64, i64, f64**: 8 bytes
+All numbers are little-endian. Simple and consistent:
 
-### String and Bytes
+| Type | Bytes |
+|------|-------|
+| u8, i8, bool | 1 |
+| u16, i16 | 2 |
+| u32, i32, f32 | 4 |
+| u64, i64, f64 | 8 |
 
-```
-+------------------+------------------+
-| Length (u32)     | Bytes...         |
-+------------------+------------------+
-```
+### Strings and Bytes
 
-- **Length** (4 bytes): Number of bytes in the string/byte array
-- **Bytes** (variable): UTF-8 string bytes or raw bytes
-
-### Nested Message
+Length-prefixed, nothing fancy:
 
 ```
 +------------------+------------------+
-| Length (u32)     | Message Data...  |
+| Length (u32)     | Data...          |
 +------------------+------------------+
 ```
 
-- **Length** (4 bytes): Size of the nested message in bytes
-- **Message Data** (variable): Complete nested message data
+For strings, the data is UTF-8 encoded. For bytes, it's raw.
 
-### Vector
+### Nested Messages
+
+Same idea - length prefix, then the message:
+
+```
++------------------+------------------+
+| Length (u32)     | Message...       |
++------------------+------------------+
+```
+
+The nested message is a complete ZeroProto message with its own header and field table.
+
+### Vectors
+
+Count prefix, then elements packed together:
 
 ```
 +------------------+------------------+------------------+
@@ -101,135 +114,146 @@ All scalar types use little-endian byte order:
 +------------------+------------------+------------------+
 ```
 
-- **Count** (4 bytes): Number of elements in the vector
-- **Elements** (variable × count): Array of element data
+For fixed-size types (numbers), elements are packed directly. For variable-size types (strings, messages), each element has its own length prefix.
 
-## Alignment and Padding
+## No Padding, No Alignment
 
-ZeroProto does **not** use padding or alignment. All fields are packed tightly together to minimize space usage.
+We pack everything as tightly as possible. No wasted bytes for alignment. This keeps messages small but means you can't just cast a pointer to a struct (not that you'd want to in safe Rust anyway).
 
-## Endianness
+## Always Little-Endian
 
-All multi-byte values use **little-endian** byte order for consistency across platforms.
+Every multi-byte value is little-endian. This is the native byte order on x86/x64 and ARM, so it's fast on most hardware.
 
-## Example
+## A Real Example
 
-Consider this schema:
+Let's trace through an actual message. Given this schema:
 
-```
+```zp
 message User {
-    id: u64;
+    user_id: u64;
     name: string;
     age: u8;
 }
 ```
 
-With these values:
-- id = 12345
-- name = "Alice"  
-- age = 30
+With values: `user_id = 12345`, `name = "Alice"`, `age = 30`
 
-The binary layout would be:
+Here's the byte-by-byte breakdown:
 
 ```
-0000: 03 00                    // Field count = 3
-0002: 03 00 00 00 10          // Field 0: type=3 (u64), offset=16
-0007: 0B 00 00 00 18          // Field 1: type=11 (string), offset=24
-000C: 00 00 00 00 1D          // Field 2: type=0 (u8), offset=29
-0011: 39 30 00 00 00 00 00 00 // id = 12345 (u64)
-0019: 05 00 00 00             // string length = 5
-001D: 41 6C 69 63 65          // "Alice"
-0022: 1E                       // age = 30 (u8)
+Offset  Bytes                     Meaning
+------  ------------------------  --------------------------------
+0x00    03 00                     Field count = 3
+0x02    03 11 00 00 00            Field 0: type=3 (u64), offset=17
+0x07    0B 19 00 00 00            Field 1: type=11 (string), offset=25
+0x0C    00 22 00 00 00            Field 2: type=0 (u8), offset=34
+0x11    39 30 00 00 00 00 00 00   user_id = 12345
+0x19    05 00 00 00               name length = 5
+0x1D    41 6C 69 63 65            "Alice" in UTF-8
+0x22    1E                        age = 30
 ```
+
+Total: 35 bytes. Not bad for a user record!
 
 ## Validation Rules
 
-### Message Validation
+When reading a message, we check:
 
-1. Field count must be ≤ 65535
-2. All field offsets must be within the message bounds
-3. Field offsets must be strictly increasing
-4. Field table size must match field count
+### Message-Level
+- Field count ≤ 65,535
+- All offsets point inside the message
+- Offsets are strictly increasing (no overlaps)
+- Field table fits in the message
 
-### Field Validation
+### Field-Level
+- Type IDs are valid (0-14)
+- String/vector lengths don't exceed remaining buffer
+- Nested messages are valid ZeroProto messages
+- UTF-8 strings are actually valid UTF-8
 
-1. String length must match actual UTF-8 byte count
-2. Vector count must match actual element count
-3. Nested message length must match embedded message size
-4. All offsets must be properly aligned for their type
+### What We Don't Allow
+- Nested vectors (vectors of vectors) - use a wrapper message instead
+- Circular references - messages can't contain themselves
 
-### Type Safety
+## Why It's Fast
 
-1. Type ID must be valid (0-14)
-2. Field data must match expected type
-3. Nested vectors are not allowed
+### Zero-Copy Magic
 
-## Performance Considerations
+When you read a string field, you get a `&str` that points directly into the input buffer. No copying, no allocation. The Rust lifetime system ensures you can't use the string after the buffer is gone.
 
-### Zero-Copy Deserialization
+### Cache-Friendly
 
-- String and bytes fields borrow directly from the input buffer
-- No memory allocations during deserialization
-- Lifetime management ensures buffer validity
+- The field table is small (5 bytes per field) and usually fits in L1 cache
+- Field data is accessed sequentially
+- Minimal pointer chasing
 
-### Cache Efficiency
+### Compact
 
-- Field table is small and typically cached
-- Sequential access patterns for field data
-- Minimal pointer indirection
-
-### Size Optimization
-
-- No padding or alignment bytes
-- Compact field table (5 bytes per field)
-- Variable-length encoding for strings and vectors
+- No padding bytes
+- Variable-length encoding for strings/vectors
+- Overhead is just 2 bytes + 5 bytes per field
 
 ## Compatibility
 
-### Version Compatibility
+### Schema Evolution
 
-- Adding new fields is forward and backward compatible
-- Removing fields breaks compatibility
-- Changing field types breaks compatibility
+| Change | Safe? | Notes |
+|--------|-------|-------|
+| Add new field at end | Yes | Old readers ignore it |
+| Remove field | No | Old readers will fail |
+| Change field type | No | Type mismatch error |
+| Rename field | Yes | Names aren't in the binary |
+| Reorder fields | No | Field order matters |
 
-### Platform Compatibility
+### Cross-Platform
 
-- Little-endian byte order ensures consistency
-- Fixed-size integer types prevent ambiguity
-- UTF-8 encoding for strings ensures text compatibility
+- Little-endian everywhere (no byte-swapping needed on x86/ARM)
+- Fixed-size integers (no "int is 32-bit on this platform" issues)
+- UTF-8 strings (universal text encoding)
 
-## Security Considerations
+## Security
 
-### Buffer Safety
+ZeroProto is designed to handle untrusted input safely:
 
-- All offsets are bounds-checked
-- String lengths are validated
-- Vector counts are validated
+### What We Check
+- All offsets are bounds-checked before use
+- String/vector lengths are validated
+- We never trust the data to be well-formed
 
-### Memory Safety
+### What Rust Gives Us
+- No buffer overflows (bounds checking)
+- No use-after-free (lifetime tracking)
+- No null pointer dereferences (Option types)
 
-- Zero-copy design prevents buffer overflows
-- Lifetime tracking prevents use-after-free
-- Type system prevents invalid field access
+### Fuzzing
+
+We fuzz-test the parser regularly. If you find a way to crash it with malformed input, please report it!
 
 ## Implementation Notes
 
-### Reader Implementation
+If you're implementing a ZeroProto parser:
 
-1. Parse field count and create field table
-2. Bounds-check all field offsets
-3. Provide typed access methods for each field type
-4. Handle vector and nested message traversal
+### Reading
 
-### Builder Implementation
+1. Read field count (first 2 bytes)
+2. Read field table (5 bytes × field count)
+3. Validate all offsets are in bounds
+4. For each field access, look up offset in table, read data at that offset
 
-1. Track field order and offsets
-2. Serialize field data to buffer
-3. Build field table during finalization
-4. Handle variable-length field sizing
+### Writing
+
+1. Collect all field data
+2. Calculate offsets (header size + field table size + cumulative data sizes)
+3. Write header
+4. Write field table
+5. Write payload
 
 ### Error Handling
 
-- Return descriptive errors for invalid data
-- Graceful handling of malformed messages
-- Detailed error reporting for debugging
+- Never panic on malformed input
+- Return descriptive errors
+- Include byte offsets in error messages when possible
+
+---
+
+Questions? Open an issue on GitHub or ask in Discord!

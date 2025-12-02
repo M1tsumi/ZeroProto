@@ -1,333 +1,330 @@
 # Contributing to ZeroProto
 
-Thank you for your interest in contributing to ZeroProto! This document provides guidelines and information for contributors.
+Hey, thanks for wanting to help out! Whether you're fixing a typo, squashing a bug, or building a whole new feature, we appreciate it.
 
-## Getting Started
+This guide will get you set up and ready to contribute.
 
-### Prerequisites
+## Before You Start
 
-- Rust 1.75 or later
-- Git
-- Basic knowledge of Rust and serialization concepts
+You'll need:
 
-### Development Setup
+- **Rust 1.75+** - We use some newer features
+- **Git** - For version control (obviously)
+- **Some Rust knowledge** - You don't need to be an expert, but familiarity helps
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
-   ```bash
-   git clone https://github.com/your-username/zeroproto.git
-   cd zeroproto
-   ```
-3. Add the upstream repository:
-   ```bash
-   git remote add upstream https://github.com/zeroproto/zeroproto.git
-   ```
-4. Install development dependencies:
-   ```bash
-   cargo install cargo-watch cargo-typst
-   ```
+## Setting Up Your Dev Environment
 
-### Building and Testing
+### 1. Fork and Clone
 
 ```bash
-# Build all crates
+# Fork the repo on GitHub first, then:
+git clone https://github.com/YOUR-USERNAME/zeroproto.git
+cd zeroproto
+
+# Add upstream so you can pull updates
+git remote add upstream https://github.com/zeroproto/zeroproto.git
+```
+
+### 2. Install Dev Tools
+
+```bash
+cargo install cargo-watch cargo-tarpaulin
+```
+
+### 3. Make Sure Everything Works
+
+```bash
+# Build it
 cargo build
 
-# Run tests
+# Run the tests
 cargo test
-
-# Run tests with coverage
-cargo tarpaulin --out Html
-
-# Run benchmarks
-cargo bench
 
 # Check formatting
 cargo fmt --check
 
-# Run clippy
+# Run the linter
 cargo clippy -- -D warnings
 ```
 
-## Development Workflow
+If all that passes, you're good to go!
+
+## The Workflow
 
 ### 1. Create a Branch
 
+Pick a descriptive name:
+
 ```bash
-git checkout -b feature/your-feature-name
+git checkout -b feature/optional-fields
 # or
-git checkout -b fix/your-fix-name
+git checkout -b fix/vector-bounds-check
 ```
 
-### 2. Make Changes
+### 2. Write Your Code
 
-- Follow the existing code style and conventions
-- Add tests for new functionality
-- Update documentation as needed
-- Ensure all tests pass
+A few things to keep in mind:
 
-### 3. Commit Changes
+- Match the existing code style (we're not picky, but consistency is nice)
+- Add tests for new stuff
+- Update docs if you're changing behavior
+- Make sure `cargo test` passes before you push
 
-Use clear and descriptive commit messages:
+### 3. Commit with Good Messages
+
+We loosely follow conventional commits:
 
 ```
-feat: add support for enum types in schema
-fix: resolve buffer overflow in vector parsing
-docs: update README with installation instructions
-test: add integration tests for nested messages
+feat: add optional field support to schema parser
+fix: handle empty vectors correctly in deserialization
+docs: clarify build.rs setup in README
+test: add edge case tests for nested messages
+perf: optimize field lookup in MessageReader
 ```
 
-### 4. Submit Pull Request
+### 4. Open a Pull Request
 
-1. Push your branch:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-2. Open a pull request on GitHub
-3. Fill out the pull request template
-4. Wait for code review
+```bash
+git push origin your-branch-name
+```
 
-## Code Style Guidelines
+Then head to GitHub and open a PR. We'll review it as soon as we can!
 
-### Rust Conventions
+## Code Style
 
-- Use `rustfmt` for formatting
-- Follow the official Rust style guide
-- Use meaningful variable and function names
-- Add `#[allow(dead_code)]` sparingly and with justification
+We're not super strict, but here's what we care about:
+
+### Formatting
+
+- Run `cargo fmt` before committing
+- That's it. Let the tool do its job.
+
+### Naming
+
+- Be descriptive. `field_offset` beats `fo`.
+- Follow Rust conventions (snake_case for functions, CamelCase for types)
 
 ### Documentation
 
-- All public items must have documentation
-- Use `///` for item documentation
-- Include examples in documentation
-- Use `#[doc]` attributes for additional metadata
+- Public APIs need doc comments
+- Include examples when it makes sense
+- If something is tricky, explain why
 
 ### Error Handling
 
-- Use `Result<T, Error>` for fallible operations
-- Provide meaningful error messages
-- Handle errors gracefully
-- Use `?` operator for error propagation
+- Return `Result` for anything that can fail
+- Make error messages actually helpful
+- Use `?` for propagation, `match` when you need to handle specific cases
 
-## Architecture Guidelines
+## Architecture
 
-### Core Principles
+### The Golden Rules
 
-1. **Zero-copy**: Maintain zero-copy deserialization
-2. **Safety**: Ensure memory safety at all times
-3. **Performance**: Optimize for speed and memory usage
-4. **Simplicity**: Keep the API simple and intuitive
+1. **Zero-copy is sacred** - Don't break it. If your change requires allocations during deserialization, think hard about whether it's worth it.
+2. **Safety first** - No unsafe code in public APIs. Period.
+3. **Speed matters** - We're a performance library. Benchmark your changes.
+4. **Keep it simple** - If the API is confusing, it's wrong.
 
-### Module Organization
-
-- `crates/zeroproto`: Core runtime library
-- `crates/zeroproto-compiler`: Schema compiler and codegen
-- `crates/zeroproto-cli`: Command-line interface
-- `crates/zeroproto-macros`: Procedural macros
-
-### Adding New Features
-
-1. Consider the impact on zero-copy deserialization
-2. Ensure backward compatibility when possible
-3. Add comprehensive tests
-4. Update documentation and examples
-
-## Testing Guidelines
-
-### Test Types
-
-- **Unit tests**: Test individual functions and modules
-- **Integration tests**: Test end-to-end functionality
-- **Benchmark tests**: Measure performance
-- **Property tests**: Test with random inputs
-
-### Test Organization
+### Where Things Live
 
 ```
-tests/
-├── integration_tests.rs    # End-to-end tests
-├── compiler_tests.rs       # Compiler-specific tests
-└── parser_tests.rs         # Parser-specific tests
+crates/
+├── zeroproto/           # Runtime library (readers, builders)
+├── zeroproto-compiler/  # Schema parser and code generator
+├── zeroproto-cli/       # Command-line tool
+└── zeroproto-macros/    # Proc macros for derive support
+```
 
-crates/zeroproto/tests/     # Runtime library tests
+### Adding Features
+
+Before you start:
+
+1. Will this break zero-copy? If yes, reconsider.
+2. Is it backward compatible? If not, it needs to wait for a major version.
+3. Do you have tests? You need tests.
+4. Is the documentation updated? It should be.
+
+## Testing
+
+We take testing seriously. Here's how we organize things:
+
+### Types of Tests
+
+- **Unit tests** - Small, focused, test one thing
+- **Integration tests** - End-to-end, test the whole pipeline
+- **Benchmarks** - Make sure we're still fast
+- **Property tests** - Throw random data at it, see what breaks
+
+### Where Tests Live
+
+```
+tests/                      # Integration tests
+crates/zeroproto/tests/     # Runtime unit tests
 crates/zeroproto-compiler/tests/  # Compiler tests
+benches/                    # Criterion benchmarks
 ```
 
-### Writing Tests
+### Writing Good Tests
 
-- Use descriptive test names
-- Test both success and error cases
-- Use `#[should_panic]` for panic tests
-- Mock external dependencies when needed
+- Name them so you know what failed: `test_vector_with_zero_elements` not `test_vector`
+- Test the happy path AND the error cases
+- If you fixed a bug, add a regression test
 
-## Documentation Standards
+## Documentation
 
-### README.md
+Good docs make everyone's life easier.
 
-- Keep it up-to-date
-- Include installation instructions
-- Provide quick start examples
-- Link to additional documentation
+### README
 
-### API Documentation
+- Keep it current
+- Quick start should actually be quick
+- Link to detailed docs for the deep stuff
 
-- Document all public APIs
-- Include usage examples
-- Explain performance characteristics
-- Note any safety considerations
+### API Docs
 
-### Schema Documentation
+- Every public item needs a doc comment
+- Include examples that actually compile
+- Mention performance implications if relevant
 
-- Document schema language features
-- Provide examples for each construct
-- Explain type system rules
-- Include best practices
+### Schema Docs
 
-## Release Process
+- Show, don't just tell
+- Include complete examples
+- Explain the "why" not just the "what"
 
-### Versioning
+## Releases
 
-ZeroProto follows [Semantic Versioning](https://semver.org/):
+We use [Semantic Versioning](https://semver.org/):
 
-- **Major**: Breaking changes
-- **Minor**: New features (backward compatible)
-- **Patch**: Bug fixes (backward compatible)
+- **Major (1.0.0)** - Breaking changes
+- **Minor (0.1.0)** - New features, backward compatible
+- **Patch (0.0.1)** - Bug fixes only
 
 ### Release Checklist
 
-1. Update version numbers
-2. Update CHANGELOG.md
-3. Run full test suite
-4. Update documentation
-5. Create git tag
-6. Publish to crates.io
-7. Update GitHub releases
+1. Bump version numbers in all `Cargo.toml` files
+2. Update `CHANGELOG.md`
+3. Run `cargo test --all-features`
+4. Run `cargo clippy`
+5. Create and push a git tag
+6. CI handles the rest (publish to crates.io, create GitHub release)
 
-## Community Guidelines
+## Community
 
-### Code of Conduct
+### Be Nice
 
-Be respectful, inclusive, and professional. Follow the [Rust Code of Conduct](https://www.rust-lang.org/conduct.html).
-
-### Communication
-
-- Use GitHub issues for bug reports and feature requests
-- Use GitHub discussions for general questions
-- Be patient and helpful with new contributors
+We follow the [Rust Code of Conduct](https://www.rust-lang.org/conduct.html). The short version: be respectful, be helpful, don't be a jerk.
 
 ### Getting Help
 
-- Read the documentation first
-- Search existing issues and discussions
-- Ask questions in GitHub discussions
-- Join our Discord server (link in README)
+1. Check the docs first
+2. Search existing issues
+3. Ask in GitHub Discussions or Discord
+4. Open an issue if you think you found a bug
 
-## Performance Guidelines
+We're friendly, we promise!
+
+## Performance
+
+We're a performance library. Here's how we stay fast:
 
 ### Benchmarking
 
-- Use Criterion for benchmarks
-- Test with realistic data sizes
-- Compare against baseline measurements
-- Profile for optimization opportunities
+- Use Criterion for all benchmarks
+- Test with realistic data (not just tiny messages)
+- Compare before/after for any perf-related changes
+- Run `cargo bench` before submitting perf PRs
 
-### Memory Usage
+### Memory
 
-- Minimize allocations
-- Use stack allocation when possible
-- Profile memory usage patterns
-- Consider cache efficiency
+- Allocations are the enemy
+- Stack > Heap when possible
+- Think about cache lines
+- Profile with `heaptrack` or similar
 
-### Optimization
+### Optimization Tips
 
-- Profile before optimizing
-- Focus on hot paths
-- Consider compiler optimizations
-- Test performance regressions
+- Profile first, optimize second
+- Focus on hot paths (deserialization is called a lot)
+- Check the assembly if you're doing something tricky
+- Add a benchmark for anything you optimize
 
-## Security Considerations
+## Security
+
+We handle untrusted input. Security matters.
 
 ### Input Validation
 
-- Validate all input data
-- Check buffer bounds
-- Handle malformed data gracefully
-- Prevent buffer overflows
+- Never trust input data
+- Always check bounds before reading
+- Handle malformed data with errors, not panics
+- Fuzz test new parsing code
 
 ### Memory Safety
 
-- Use safe Rust when possible
-- Document unsafe code thoroughly
-- Audit unsafe code regularly
-- Consider formal verification for critical components
+- Safe Rust by default
+- If you need `unsafe`, you need a really good reason AND a safety comment
+- All unsafe code gets extra review
 
-## Contributing Tools
+## Dev Tools
 
-### IDE Configuration
-
-#### VS Code
+### VS Code Setup
 
 Install these extensions:
-- rust-analyzer
-- CodeLLDB
-- Better TOML
+- **rust-analyzer** - Essential
+- **CodeLLDB** - For debugging
+- **Even Better TOML** - For Cargo.toml files
 
-#### Configuration
+Recommended settings:
 
 ```json
 {
     "rust-analyzer.checkOnSave.command": "clippy",
-    "rust-analyzer.cargo.loadOutDirsFromCheck": true,
     "rust-analyzer.procMacro.enable": true
 }
 ```
 
-### Git Hooks
+### Pre-commit Hook (Optional)
 
-Use pre-commit hooks to ensure code quality:
+Save this as `.git/hooks/pre-commit`:
 
 ```bash
 #!/bin/sh
-# pre-commit hook
-cargo fmt --all
-cargo clippy -- -D warnings
-cargo test
+cargo fmt --check || exit 1
+cargo clippy -- -D warnings || exit 1
+cargo test --lib || exit 1
 ```
 
 ## Reporting Issues
 
 ### Bug Reports
 
-Include:
-- Rust version
-- Operating system
-- Minimal reproducible example
-- Expected vs actual behavior
-- Backtrace if available
+Help us help you. Include:
+
+- Rust version (`rustc --version`)
+- OS and version
+- A minimal example that reproduces the bug
+- What you expected vs what happened
+- Backtrace if there's a panic
 
 ### Feature Requests
 
-Include:
-- Use case description
-- Proposed API design
-- Implementation considerations
-- Alternative approaches
+Tell us:
 
-## Acknowledgments
+- What problem are you trying to solve?
+- What would the API look like?
+- Are there alternatives you've considered?
 
-Thank you to all contributors who make ZeroProto better! Your contributions are greatly appreciated.
+---
 
-### Contributors
+## Thank You!
 
-- Add your name here when you make your first contribution
+Seriously, thanks for contributing. Open source runs on people like you.
 
-### Inspiration
+Every contribution matters, whether it's:
+- Fixing a typo in the docs
+- Reporting a bug
+- Adding a test
+- Building a major feature
 
-ZeroProto is inspired by existing serialization formats like:
-- Protocol Buffers
-- FlatBuffers
-- Cap'n Proto
-- MessagePack
-
-Thank you to their creators and communities for paving the way!
+We appreciate all of it.
