@@ -22,9 +22,12 @@ struct SchemaParser {
 enum Token {
     Identifier(String),
     Integer(i64),
-    String(String),
+    Float(f64),
+    StringLiteral(String),
     Message,
     Enum,
+    True,
+    False,
     Colon,
     Semicolon,
     Comma,
@@ -33,6 +36,7 @@ enum Token {
     LeftBracket,
     RightBracket,
     Equals,
+    Question,
 }
 
 impl SchemaParser {
@@ -77,20 +81,34 @@ impl SchemaParser {
                     let token = match ident.as_str() {
                         "message" => Token::Message,
                         "enum" => Token::Enum,
-                        "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" |
-                        "f32" | "f64" | "bool" | "string" | "bytes" => Token::Identifier(ident),
+                        "true" => Token::True,
+                        "false" => Token::False,
                         _ => Token::Identifier(ident),
                     };
                     self.tokens.push(token);
                 }
-                '0'..='9' => {
+                '0'..='9' | '-' if chars[i] == '-' || chars[i].is_ascii_digit() => {
                     let start = i;
+                    if chars[i] == '-' {
+                        i += 1;
+                    }
                     while i < chars.len() && chars[i].is_ascii_digit() {
                         i += 1;
                     }
-                    let num_str: String = chars[start..i].iter().collect();
-                    let num = num_str.parse().expect("valid integer");
-                    self.tokens.push(Token::Integer(num));
+                    // Check for float
+                    if i < chars.len() && chars[i] == '.' {
+                        i += 1;
+                        while i < chars.len() && chars[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                        let num_str: String = chars[start..i].iter().collect();
+                        let num: f64 = num_str.parse().expect("valid float");
+                        self.tokens.push(Token::Float(num));
+                    } else {
+                        let num_str: String = chars[start..i].iter().collect();
+                        let num: i64 = num_str.parse().expect("valid integer");
+                        self.tokens.push(Token::Integer(num));
+                    }
                 }
                 ':' => {
                     self.tokens.push(Token::Colon);
@@ -123,6 +141,25 @@ impl SchemaParser {
                 ',' => {
                     self.tokens.push(Token::Comma);
                     i += 1;
+                }
+                '?' => {
+                    self.tokens.push(Token::Question);
+                    i += 1;
+                }
+                '"' => {
+                    // String literal
+                    i += 1;
+                    let start = i;
+                    while i < chars.len() && chars[i] != '"' {
+                        if chars[i] == '\\' && i + 1 < chars.len() {
+                            i += 2; // Skip escaped character
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    let string_content: String = chars[start..i].iter().collect();
+                    self.tokens.push(Token::StringLiteral(string_content));
+                    i += 1; // Skip closing quote
                 }
                 _ => {
                     return Err(crate::CompilerError::Parse(format!("Unexpected character: {}", chars[i])));
@@ -179,8 +216,64 @@ impl SchemaParser {
         let name = self.consume_identifier()?;
         self.consume(Token::Colon)?;
         let field_type = self.parse_type()?;
+        
+        // Check for optional marker (?)
+        let optional = if !self.at_end() && self.peek() == Token::Question {
+            self.consume(Token::Question)?;
+            true
+        } else {
+            false
+        };
+        
+        // Check for default value (= value)
+        let default_value = if !self.at_end() && self.peek() == Token::Equals {
+            self.consume(Token::Equals)?;
+            Some(self.parse_default_value()?)
+        } else {
+            None
+        };
+        
         self.consume(Token::Semicolon)?;
-        Ok(Field { name, field_type })
+        
+        Ok(Field { 
+            name, 
+            field_type,
+            optional,
+            default_value,
+        })
+    }
+    
+    fn parse_default_value(&mut self) -> Result<crate::ast::DefaultValue> {
+        use crate::ast::DefaultValue;
+        
+        if self.at_end() {
+            return Err(crate::CompilerError::Parse("Expected default value".to_string()));
+        }
+        
+        match self.peek() {
+            Token::Integer(val) => {
+                self.position += 1;
+                Ok(DefaultValue::Integer(val))
+            }
+            Token::Float(val) => {
+                self.position += 1;
+                Ok(DefaultValue::Float(val))
+            }
+            Token::True => {
+                self.position += 1;
+                Ok(DefaultValue::Bool(true))
+            }
+            Token::False => {
+                self.position += 1;
+                Ok(DefaultValue::Bool(false))
+            }
+            Token::StringLiteral(s) => {
+                let s = s.clone();
+                self.position += 1;
+                Ok(DefaultValue::String(s))
+            }
+            _ => Err(crate::CompilerError::Parse("Expected default value (integer, float, bool, or string)".to_string())),
+        }
     }
 
     fn parse_message_fields(&mut self) -> Result<Vec<Field>> {
@@ -337,6 +430,89 @@ mod tests {
             } else {
                 panic!("Expected vector type");
             }
+        } else {
+            panic!("Expected message");
+        }
+    }
+
+    #[test]
+    fn test_optional_field() {
+        let input = r#"
+            message User {
+                user_id: u64;
+                nickname: string?;
+            }
+        "#;
+        
+        let schema = parse(input).unwrap();
+        
+        if let SchemaItem::Message(msg) = &schema.items[0] {
+            assert_eq!(msg.fields.len(), 2);
+            assert!(!msg.fields[0].optional, "user_id should not be optional");
+            assert!(msg.fields[1].optional, "nickname should be optional");
+        } else {
+            panic!("Expected message");
+        }
+    }
+
+    #[test]
+    fn test_default_values() {
+        let input = r#"
+            message Config {
+                max_retries: u32 = 3;
+                timeout_ms: u64 = 5000;
+                debug_mode: bool = false;
+                name: string = "default";
+            }
+        "#;
+        
+        let schema = parse(input).unwrap();
+        
+        if let SchemaItem::Message(msg) = &schema.items[0] {
+            assert_eq!(msg.fields.len(), 4);
+            
+            // Check max_retries default
+            assert!(msg.fields[0].default_value.is_some());
+            if let Some(crate::ast::DefaultValue::Integer(val)) = &msg.fields[0].default_value {
+                assert_eq!(*val, 3);
+            } else {
+                panic!("Expected integer default for max_retries");
+            }
+            
+            // Check debug_mode default
+            assert!(msg.fields[2].default_value.is_some());
+            if let Some(crate::ast::DefaultValue::Bool(val)) = &msg.fields[2].default_value {
+                assert!(!*val);
+            } else {
+                panic!("Expected bool default for debug_mode");
+            }
+            
+            // Check name default
+            assert!(msg.fields[3].default_value.is_some());
+            if let Some(crate::ast::DefaultValue::String(val)) = &msg.fields[3].default_value {
+                assert_eq!(val, "default");
+            } else {
+                panic!("Expected string default for name");
+            }
+        } else {
+            panic!("Expected message");
+        }
+    }
+
+    #[test]
+    fn test_optional_with_default() {
+        let input = r#"
+            message User {
+                nickname: string? = "anonymous";
+            }
+        "#;
+        
+        let schema = parse(input).unwrap();
+        
+        if let SchemaItem::Message(msg) = &schema.items[0] {
+            let field = &msg.fields[0];
+            assert!(field.optional, "Field should be optional");
+            assert!(field.default_value.is_some(), "Field should have default value");
         } else {
             panic!("Expected message");
         }

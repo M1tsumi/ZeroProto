@@ -1,36 +1,38 @@
 # ZeroProto Tutorial
 
-This tutorial will walk you through using ZeroProto, from basic concepts to advanced usage patterns.
+Welcome! This tutorial will take you from zero to hero with ZeroProto. By the end, you'll understand how zero-copy serialization works and how to use it effectively in your projects.
 
-## Table of Contents
+## What We'll Cover
 
-1. [Getting Started](#getting-started)
-2. [Basic Concepts](#basic-concepts)
-3. [Schema Definition](#schema-definition)
-4. [Code Generation](#code-generation)
-5. [Using Generated Code](#using-generated-code)
-6. [Advanced Features](#advanced-features)
-7. [Performance Optimization](#performance-optimization)
-8. [Error Handling](#error-handling)
-9. [Best Practices](#best-practices)
+1. [Getting Started](#getting-started) - Installation and first steps
+2. [The Big Idea](#the-big-idea) - Why zero-copy matters
+3. [Writing Schemas](#writing-schemas) - Defining your data structures
+4. [Code Generation](#code-generation) - Turning schemas into Rust code
+5. [Building and Reading Messages](#building-and-reading-messages) - The fun part
+6. [Going Deeper](#going-deeper) - Advanced patterns
+7. [Making It Fast](#making-it-fast) - Performance tips
+8. [When Things Go Wrong](#when-things-go-wrong) - Error handling
+9. [Tips and Tricks](#tips-and-tricks) - Best practices
 
 ## Getting Started
 
+Let's get you up and running.
+
 ### Installation
 
-Add ZeroProto to your `Cargo.toml`:
+Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zeroproto = "0.2.0"
+zeroproto = "0.3.0"
 
 [build-dependencies]
-zeroproto-compiler = "0.2.0"
+zeroproto-compiler = "0.3.0"
 ```
 
-### Your First Project
+### The Quick Way
 
-Create a new project with the CLI:
+If you want to skip the setup, use our CLI:
 
 ```bash
 zeroproto init my-project
@@ -38,103 +40,115 @@ cd my-project
 cargo build
 ```
 
-This creates a complete project structure with:
-- `Cargo.toml` with dependencies
-- `build.rs` for schema compilation
-- `schemas/` directory for `.zp` files
-- `src/main.rs` with example code
+Boom! You've got a working project with:
+- `Cargo.toml` - Dependencies already configured
+- `build.rs` - Schema compilation set up
+- `schemas/` - A place for your `.zp` files
+- `src/main.rs` - A working example to play with
 
-## Basic Concepts
+## The Big Idea
 
-### Zero-Copy Serialization
+### What Makes Zero-Copy Special?
 
-ZeroProto's key innovation is zero-copy deserialization. When you deserialize data:
+Most serialization libraries work like this:
 
 ```rust
-// Traditional approach (allocates new memory)
-let string: String = deserialize_json(&json_data);
-
-// ZeroProto approach (no allocation)
-let string: &str = reader.get_string(0)?;
+// Traditional approach: allocate and copy
+let user: User = serde_json::from_str(&json_string)?;
+// ^ This allocates memory for every string, every vector, everything
 ```
 
-The string slice directly references the original buffer - no copying, no allocation!
+ZeroProto works differently:
 
-### Schema-Based Code Generation
+```rust
+// ZeroProto: just read from the buffer
+let user = UserReader::from_slice(&buffer)?;
+let name: &str = user.name()?;
+// ^ This is a slice into the original buffer. No allocation!
+```
 
-ZeroProto uses schema files (`.zp`) to define your data structures:
+The data stays where it is. We just read it in place. This is why ZeroProto is so fast.
+
+### How It Works
+
+You write a schema:
 
 ```zp
 message User {
-    id: u64;
+    user_id: u64;
     name: string;
     email: string;
 }
 ```
 
-The compiler generates type-safe Rust code:
+The compiler generates Rust code:
 
 ```rust
-// Generated code
-pub struct UserReader<'a> {
-    reader: MessageReader<'a>,
-}
+// You get a reader (for zero-copy deserialization)
+pub struct UserReader<'a> { /* ... */ }
 
 impl<'a> UserReader<'a> {
-    pub fn id(&self) -> zeroproto::Result<u64> { /* ... */ }
-    pub fn name(&self) -> zeroproto::Result<&'a str> { /* ... */ }
-    pub fn email(&self) -> zeroproto::Result<&'a str> { /* ... */ }
+    pub fn user_id(&self) -> Result<u64> { /* ... */ }
+    pub fn name(&self) -> Result<&'a str> { /* ... */ }  // Note the lifetime!
+    pub fn email(&self) -> Result<&'a str> { /* ... */ }
 }
+
+// And a builder (for serialization)
+pub struct UserBuilder { /* ... */ }
 ```
 
-## Schema Definition
+Notice the `'a` lifetime on the reader? That's the magic. The strings you get back are borrowed from the original buffer.
 
-### Primitive Types
+## Writing Schemas
 
-ZeroProto supports all primitive types:
+Schemas are where you define your data structures. They live in `.zp` files.
+
+### The Basics
+
+Here are all the types you can use:
 
 ```zp
-message Primitives {
-    // Integers
-    int8_field: i8;
-    int16_field: i16;
-    int32_field: i32;
-    int64_field: i64;
-    uint8_field: u8;
-    uint16_field: u16;
-    uint32_field: u32;
-    uint64_field: u64;
+message AllTheTypes {
+    // Integers (signed and unsigned)
+    tiny: i8;
+    small: i16;
+    medium: i32;
+    big: i64;
+    tiny_unsigned: u8;
+    small_unsigned: u16;
+    medium_unsigned: u32;
+    big_unsigned: u64;
     
-    // Floats
-    float32_field: f32;
-    float64_field: f64;
+    // Floating point
+    float_val: f32;
+    double_val: f64;
     
-    // Other types
-    bool_field: bool;
-    string_field: string;
-    bytes_field: bytes;
+    // Other primitives
+    flag: bool;
+    name: string;   // UTF-8 string
+    raw_data: bytes; // Raw byte array
 }
 ```
 
 ### Enums
 
-Define enums with explicit values:
+Enums need explicit values (we don't auto-assign them):
 
 ```zp
 enum Status {
     Inactive = 0;
     Active = 1;
     Pending = 2;
-    Suspended = 3;
+    Banned = 3;
 }
 
 message User {
-    id: u64;
+    user_id: u64;
     status: Status;
 }
 ```
 
-### Nested Messages
+### Nesting Messages
 
 Messages can contain other messages:
 
@@ -143,47 +157,54 @@ message Address {
     street: string;
     city: string;
     country: string;
-    postal_code: string;
+    zip: string;
 }
 
 message User {
-    id: u64;
+    user_id: u64;
     name: string;
-    address: Address;
+    home_address: Address;  // Nested!
+    work_address: Address;  // You can have multiple
 }
 ```
 
-### Vectors
+### Vectors (Lists)
 
-Collections of any type:
+Use square brackets for collections:
 
 ```zp
 message User {
-    id: u64;
-    tags: [string];
-    scores: [u32];
-    friends: [u64];
+    user_id: u64;
+    tags: [string];      // List of strings
+    scores: [u32];       // List of numbers
+    friend_ids: [u64];   // List of IDs
+    addresses: [Address]; // List of messages!
 }
 ```
 
 ## Code Generation
 
-### Build Script
+The compiler turns your schemas into Rust code. Here's how to set it up.
 
-Create a `build.rs` file:
+### The build.rs File
+
+Create `build.rs` in your project root:
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Compile all .zp files in schemas directory
+    // This compiles everything in the schemas/ directory
     zeroproto_compiler::build()?;
     Ok(())
 }
 ```
 
-Or compile specific files:
+That's it! Cargo will run this before building your crate.
+
+### Want More Control?
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Compile specific files to a specific location
     zeroproto_compiler::compile_multiple(
         &["schemas/user.zp", "schemas/post.zp"],
         "src/generated"
@@ -192,77 +213,82 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Directory Structure
+### Project Layout
+
+Here's what a typical project looks like:
 
 ```
 my-project/
 ├── Cargo.toml
-├── build.rs
+├── build.rs           # Runs the compiler
 ├── schemas/
-│   ├── user.zp
+│   ├── user.zp        # Your schema files
 │   └── post.zp
 └── src/
     ├── main.rs
-    └── generated/
+    └── generated/     # Generated code goes here
+        ├── mod.rs
         ├── user.rs
         └── post.rs
 ```
 
-## Using Generated Code
+## Building and Reading Messages
 
-### Building Messages
+This is where ZeroProto shines. Let's see it in action.
 
-Use the generated builder to create messages:
+### Creating a Message
 
 ```rust
 use generated::user::*;
 
-fn create_user() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn create_user() -> Vec<u8> {
     let mut builder = UserBuilder::new();
-    builder.set_id(12345)?;
-    builder.set_name("Alice")?;
-    builder.set_email("alice@example.com")?;
     
-    // Set nested address
-    let mut address_builder = AddressBuilder::new();
-    address_builder.set_street("123 Main St")?;
-    address_builder.set_city("Anytown")?;
-    address_builder.set_country("USA")?;
-    address_builder.set_postal_code("12345")?;
+    // Set simple fields
+    builder.set_user_id(12345);
+    builder.set_name("Alice");
+    builder.set_email("alice@example.com");
     
-    let address_data = address_builder.finish();
-    builder.set_address(&address_data)?;
+    // Nested messages: build them separately, then attach
+    let mut addr = AddressBuilder::new();
+    addr.set_street("123 Main St");
+    addr.set_city("Portland");
+    addr.set_country("USA");
+    addr.set_zip("97201");
+    let addr_data = addr.finish();
     
-    // Set tags
-    let tags = vec!["developer", "rust", "zeroproto"];
-    builder.set_tags(&tags)?;
+    builder.set_home_address(&addr_data);
     
-    Ok(builder.finish())
+    // Vectors are easy
+    builder.set_tags(&["developer", "rust-lover", "coffee-addict"]);
+    builder.set_friend_ids(&[1001, 1002, 1003]);
+    
+    builder.finish()  // Returns Vec<u8>
 }
 ```
 
-### Reading Messages
-
-Use the generated reader for zero-copy access:
+### Reading a Message (Zero-Copy!)
 
 ```rust
-fn read_user(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+fn read_user(data: &[u8]) -> Result<(), zeroproto::Error> {
+    // This doesn't copy anything - it just sets up pointers into `data`
     let user = UserReader::from_slice(data)?;
     
-    println!("User ID: {}", user.id()?);
-    println!("Name: {}", user.name()?);
-    println!("Email: {}", user.email()?);
+    // Primitives are copied (they're small)
+    let id: u64 = user.user_id()?;
     
-    // Read nested address
-    let address = user.address()?;
-    println!("Address: {}, {}, {}", 
-             address.street()?,
-             address.city()?,
-             address.country()?);
+    // Strings are borrowed - no allocation!
+    let name: &str = user.name()?;
+    let email: &str = user.email()?;
     
-    // Iterate over tags
-    let tags = user.tags()?;
-    for tag in tags.iter() {
+    println!("User {}: {} ({})", id, name, email);
+    
+    // Nested messages work the same way
+    let addr = user.home_address()?;
+    println!("Lives in: {}", addr.city()?);
+    
+    // Iterate over vectors
+    for tag in user.tags()?.iter() {
         println!("Tag: {}", tag?);
     }
     
@@ -270,226 +296,249 @@ fn read_user(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Error Handling
+### Handling Errors
 
-All operations return `Result<T, zeroproto::Error>`:
+Every field access returns a `Result`. Here's how to handle them:
 
 ```rust
 use zeroproto::Error;
 
-fn handle_user(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+fn safe_read(data: &[u8]) -> Result<String, Error> {
+    let user = UserReader::from_slice(data)?;
+    
+    // Use ? for simple propagation
+    let name = user.name()?;
+    let email = user.email()?;
+    
+    Ok(format!("{} <{}>", name, email))
+}
+
+// Or handle specific errors
+fn detailed_read(data: &[u8]) {
     match UserReader::from_slice(data) {
         Ok(user) => {
-            match user.id() {
-                Ok(id) => println!("User ID: {}", id),
-                Err(Error::InvalidFieldType) => println!("Invalid field type"),
-                Err(e) => return Err(Box::new(e)),
+            match user.name() {
+                Ok(name) => println!("Name: {}", name),
+                Err(Error::InvalidOffset) => println!("Name field is corrupted"),
+                Err(e) => println!("Error reading name: {:?}", e),
             }
         }
-        Err(e) => return Err(Box::new(e)),
+        Err(e) => println!("Invalid message: {:?}", e),
     }
-    Ok(())
 }
 ```
 
-## Advanced Features
+## Going Deeper
 
-### Field Offsets
+### Validation
 
-Generated code includes offset constants for direct access:
-
-```rust
-// Generated constants
-pub const FIELD_0_OFFSET: usize = 27;
-pub const FIELD_1_OFFSET: usize = 35;
-
-// Use for manual parsing if needed
-let id_offset = FIELD_0_OFFSET;
-```
-
-### Custom Validation
-
-Add validation when reading:
+ZeroProto doesn't validate your business logic - that's your job:
 
 ```rust
-fn validate_user(user: &UserReader) -> Result<(), Box<dyn std::error::Error>> {
-    let id = user.id()?;
+fn validate_user(user: &UserReader) -> Result<(), String> {
+    let id = user.user_id().map_err(|e| format!("Can't read ID: {:?}", e))?;
     if id == 0 {
-        return Err("User ID cannot be zero".into());
+        return Err("User ID can't be zero".into());
     }
     
-    let email = user.email()?;
+    let email = user.email().map_err(|e| format!("Can't read email: {:?}", e))?;
     if !email.contains('@') {
-        return Err("Invalid email format".into());
+        return Err("That's not a valid email".into());
     }
     
     Ok(())
 }
 ```
 
-### Partial Updates
+### Working with Optional Data
 
-Update specific fields without rebuilding the entire message:
+In v0.3.0, we added optional fields:
 
-```rust
-fn update_user_email(mut builder: UserBuilder, new_email: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    builder.set_email(new_email)?;
-    Ok(builder.finish())
+```zp
+message User {
+    user_id: u64;
+    name: string;
+    nickname: string?;  // Optional!
+    avatar_url: string?;
 }
 ```
 
-## Performance Optimization
-
-### Batch Operations
-
-Process multiple messages efficiently:
-
 ```rust
-fn process_users(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    // Assume data contains multiple concatenated messages
-    let mut offset = 0;
-    
-    while offset < data.len() {
-        let reader = MessageReader::new(&data[offset..])?;
-        let user = UserReader::new(reader)?;
-        
-        // Process user
-        println!("Processing user: {}", user.name()?);
-        
-        // Move to next message (you'd need to store message sizes)
-        offset += user.reader.total_size();
-    }
-    
-    Ok(())
+let user = UserReader::from_slice(&data)?;
+
+// Optional fields return Option<Result<T>>
+if let Some(nickname) = user.nickname() {
+    println!("Nickname: {}", nickname?);
 }
 ```
 
-### Memory Pooling
+### Default Values
 
-Reuse builders for better performance:
+Also new in v0.3.0:
 
-```rust
-struct UserPool {
-    builders: Vec<UserBuilder>,
-}
-
-impl UserPool {
-    fn new() -> Self {
-        Self {
-            builders: Vec::with_capacity(100),
-        }
-    }
-    
-    fn get_builder(&mut self) -> UserBuilder {
-        self.builders.pop().unwrap_or_else(|| UserBuilder::new())
-    }
-    
-    fn return_builder(&mut self, builder: UserBuilder) {
-        self.builders.push(builder);
-    }
+```zp
+message Config {
+    max_retries: u32 = 3;
+    timeout_ms: u64 = 5000;
+    debug: bool = false;
 }
 ```
 
-### Zero-Copy Iteration
+If a field isn't set, you get the default instead of an error.
 
-Iterate over vectors without allocation:
+## Making It Fast
+
+ZeroProto is already fast, but here's how to squeeze out even more performance.
+
+### Avoid Unnecessary Reads
 
 ```rust
-fn process_tags(user: &UserReader) -> Result<(), Box<dyn std::error::Error>> {
-    let tags = user.tags()?;
-    
-    // Zero-copy iteration
-    for tag in tags.iter() {
-        let tag_str = tag?;
-        if tag_str.starts_with("rust") {
-            println!("Rust-related tag: {}", tag_str);
-        }
-    }
-    
-    Ok(())
+// Bad: reads the same field twice
+if user.name()?.len() > 0 {
+    println!("Name: {}", user.name()?);
+}
+
+// Good: read once, use the result
+let name = user.name()?;
+if !name.is_empty() {
+    println!("Name: {}", name);
 }
 ```
 
-## Error Handling
+### Batch Processing
+
+If you're processing lots of messages, consider batching:
+
+```rust
+fn process_batch(messages: &[Vec<u8>]) -> Result<Vec<String>, zeroproto::Error> {
+    let mut results = Vec::with_capacity(messages.len());
+    
+    for msg in messages {
+        let user = UserReader::from_slice(msg)?;
+        results.push(user.name()?.to_string());
+    }
+    
+    Ok(results)
+}
+```
+
+### Reuse Builders
+
+Builders allocate memory. If you're creating lots of messages, reuse them:
+
+```rust
+let mut builder = UserBuilder::new();
+
+for user_data in users {
+    builder.clear();  // Reset for reuse
+    builder.set_user_id(user_data.id);
+    builder.set_name(&user_data.name);
+    // ...
+    let bytes = builder.finish();
+    send_message(&bytes);
+}
+```
+
+### Vector Iteration
+
+Vector iteration is zero-copy too:
+
+```rust
+let tags = user.tags()?;
+
+// This doesn't allocate - each tag is a slice into the original buffer
+for tag in tags.iter() {
+    process_tag(tag?);
+}
+```
+
+## When Things Go Wrong
+
+ZeroProto has a few error types you'll encounter:
 
 ### Error Types
 
-ZeroProto defines several error types:
-
 ```rust
 use zeroproto::Error;
 
-match error {
-    Error::InvalidFieldType => /* Wrong type for field */,
-    Error::InvalidOffset => /* Field offset out of bounds */,
-    Error::InvalidLength => /* Invalid vector/string length */,
-    Error::Io(e) => /* I/O error */,
+match err {
+    Error::InvalidFieldType => {
+        // The field exists but has the wrong type
+        // Usually means corrupted data or schema mismatch
+    }
+    Error::InvalidOffset => {
+        // Tried to read past the end of the buffer
+        // Data is truncated or corrupted
+    }
+    Error::InvalidLength => {
+        // A string or vector has an impossible length
+        // Definitely corrupted data
+    }
+    Error::Io(io_err) => {
+        // Underlying I/O error (rare)
+    }
 }
 ```
 
-### Validation Errors
+### Common Mistakes
 
-Schema validation produces detailed errors:
+**Using reserved field names:**
+```zp
+// Bad - 'type' is reserved
+message Event {
+    type: string;  // Compiler error!
+}
 
-```rust
-// Schema validation error
-Error::Validation("Field name 'id' is reserved in message 'User'")
-```
-
-### Runtime Errors
-
-Runtime errors include context:
-
-```rust
-use zeroproto::Error;
-
-fn safe_read(reader: &UserReader) -> Result<String, Error> {
-    let id = reader.id()
-        .map_err(|e| Error::InvalidFieldType)?;
-    
-    let name = reader.name()
-        .map_err(|e| Error::InvalidFieldType)?;
-    
-    Ok(format!("{}: {}", id, name))
+// Good
+message Event {
+    event_type: string;
 }
 ```
 
-## Best Practices
+**Forgetting to handle Results:**
+```rust
+// Bad - will panic on error
+let name = user.name().unwrap();
+
+// Good
+let name = user.name()?;
+```
+
+## Tips and Tricks
 
 ### Schema Design
 
-1. **Use explicit enum values** - Always assign values to enum variants
-2. **Avoid reserved names** - Don't use "id", "type", "data", "buffer" for field names
-3. **Keep messages small** - Large messages impact performance
-4. **Use vectors for collections** - More efficient than repeated fields
+- **Always give enums explicit values** - Makes schema evolution easier
+- **Avoid reserved names** - `id`, `type`, `data`, `buffer` will cause problems
+- **Keep messages focused** - One message per concept
+- **Use vectors, not repeated fields** - They're more efficient
 
-### Performance Tips
+### Performance
 
-1. **Reuse builders** - Pool builders for frequent allocations
-2. **Batch operations** - Process multiple messages together
-3. **Minimize string copies** - Use zero-copy string access
-4. **Prefer vectors over repeated fields** - More memory efficient
+- **Reuse builders** when creating many messages
+- **Batch reads** when processing many messages
+- **Don't copy strings** unless you need to keep them after the buffer is gone
+- **Benchmark your actual use case** - synthetic benchmarks can be misleading
 
 ### Error Handling
 
-1. **Handle all Result types** - Don't unwrap() in production code
-2. **Provide context** - Add meaningful error messages
-3. **Validate early** - Check schema at compile time
-4. **Log errors** - Include context for debugging
+- **Never `.unwrap()` in production** - Use `?` or proper error handling
+- **Add context to errors** - "Failed to read user" is better than just the raw error
+- **Validate early** - Check data as soon as you receive it
 
 ### Testing
 
-1. **Test roundtrip** - Serialize then deserialize
-2. **Test edge cases** - Empty vectors, large strings
-3. **Test errors** - Verify error handling works
-4. **Benchmark** - Measure performance in your use case
+- **Roundtrip test everything** - Serialize, deserialize, compare
+- **Test edge cases** - Empty strings, empty vectors, max values
+- **Test with corrupted data** - Make sure you get errors, not panics
+- **Benchmark with realistic data** - Not just tiny test messages
 
-## Complete Example
+## Putting It All Together
 
-Here's a complete example putting everything together:
+Here's a complete, working example:
 
-```rust
-// schemas/user.zp
+**schemas/user.zp**
+```zp
 enum Status {
     Inactive = 0;
     Active = 1;
@@ -505,84 +554,82 @@ message User {
 }
 ```
 
+**build.rs**
 ```rust
-// build.rs
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     zeroproto_compiler::build()?;
     Ok(())
 }
 ```
 
+**src/main.rs**
 ```rust
-// src/main.rs
 mod generated;
-
 use generated::user::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create user
-    let user_data = create_test_user()?;
+    // Create a user
+    let data = create_user();
+    println!("Serialized {} bytes", data.len());
     
-    // Read user (zero-copy)
-    let user = UserReader::from_slice(&user_data)?;
+    // Read it back (zero-copy!)
+    let user = UserReader::from_slice(&data)?;
+    print_user(&user)?;
     
-    // Display user info
-    display_user(&user)?;
-    
-    // Validate user
-    validate_user(&user)?;
+    // Validate it
+    validate(&user)?;
     
     Ok(())
 }
 
-fn create_test_user() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn create_user() -> Vec<u8> {
     let mut builder = UserBuilder::new();
-    builder.set_user_id(12345)?;
-    builder.set_username("alice")?;
-    builder.set_email("alice@example.com")?;
-    builder.set_status(Status::Active)?;
-    
-    let tags = vec!["developer", "rust", "zeroproto"];
-    builder.set_tags(&tags)?;
-    
-    Ok(builder.finish())
+    builder.set_user_id(42);
+    builder.set_username("alice");
+    builder.set_email("alice@example.com");
+    builder.set_status(Status::Active);
+    builder.set_tags(&["rust", "zeroproto", "speed"]);
+    builder.finish()
 }
 
-fn display_user(user: &UserReader) -> Result<(), Box<dyn std::error::Error>> {
-    println!("User Information:");
-    println!("  ID: {}", user.user_id()?);
-    println!("  Username: {}", user.username()?);
+fn print_user(user: &UserReader) -> Result<(), zeroproto::Error> {
+    println!("User #{}", user.user_id()?);
+    println!("  Name: {}", user.username()?);
     println!("  Email: {}", user.email()?);
     println!("  Status: {:?}", user.status()?);
     
-    println!("  Tags:");
-    let tags = user.tags()?;
-    for tag in tags.iter() {
-        println!("    - {}", tag?);
+    print!("  Tags: ");
+    for (i, tag) in user.tags()?.iter().enumerate() {
+        if i > 0 { print!(", "); }
+        print!("{}", tag?);
     }
+    println!();
     
     Ok(())
 }
 
-fn validate_user(user: &UserReader) -> Result<(), Box<dyn std::error::Error>> {
-    let id = user.user_id()?;
-    if id == 0 {
-        return Err("User ID cannot be zero".into());
+fn validate(user: &UserReader) -> Result<(), String> {
+    if user.user_id().map_err(|e| e.to_string())? == 0 {
+        return Err("User ID can't be zero".into());
     }
     
-    let email = user.email()?;
+    let email = user.email().map_err(|e| e.to_string())?;
     if !email.contains('@') {
-        return Err("Invalid email format".into());
+        return Err("Invalid email".into());
     }
     
-    let tags = user.tags()?;
-    if tags.len()? == 0 {
-        return Err("User must have at least one tag".into());
-    }
-    
-    println!("✅ User validation passed");
+    println!("Validation passed!");
     Ok(())
 }
 ```
 
-This tutorial covers all the essential concepts and patterns for using ZeroProto effectively. The zero-copy design provides significant performance benefits while maintaining type safety and ergonomics.
+---
+
+That's it! You now know everything you need to use ZeroProto effectively. The key things to remember:
+
+1. **Zero-copy means fast** - Data stays in the buffer, we just read it
+2. **Schemas define your types** - Write them in `.zp` files
+3. **Builders create, Readers read** - Simple API
+4. **Everything returns Result** - Handle your errors
+
+Happy serializing!

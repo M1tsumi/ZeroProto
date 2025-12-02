@@ -27,6 +27,23 @@ pub struct Message {
 pub struct Field {
     pub name: String,
     pub field_type: FieldType,
+    /// Whether this field is optional (marked with `?`)
+    pub optional: bool,
+    /// Default value for this field (if specified with `= value`)
+    pub default_value: Option<DefaultValue>,
+}
+
+/// Default values that can be assigned to fields
+#[derive(Debug, Clone, PartialEq)]
+pub enum DefaultValue {
+    /// Integer default (for u8, u16, u32, u64, i8, i16, i32, i64)
+    Integer(i64),
+    /// Float default (for f32, f64)
+    Float(f64),
+    /// Boolean default
+    Bool(bool),
+    /// String default
+    String(String),
 }
 
 /// The type of a field
@@ -171,7 +188,37 @@ impl Message {
 impl Field {
     /// Create a new field
     pub fn new(name: String, field_type: FieldType) -> Self {
-        Self { name, field_type }
+        Self { 
+            name, 
+            field_type,
+            optional: false,
+            default_value: None,
+        }
+    }
+
+    /// Create a new optional field
+    pub fn optional(name: String, field_type: FieldType) -> Self {
+        Self {
+            name,
+            field_type,
+            optional: true,
+            default_value: None,
+        }
+    }
+
+    /// Create a new field with a default value
+    pub fn with_default(name: String, field_type: FieldType, default: DefaultValue) -> Self {
+        Self {
+            name,
+            field_type,
+            optional: false,
+            default_value: Some(default),
+        }
+    }
+
+    /// Check if this field has a default value or is optional
+    pub fn is_required(&self) -> bool {
+        !self.optional && self.default_value.is_none()
     }
 }
 
