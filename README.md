@@ -31,10 +31,10 @@ Add these to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-zeroproto = "0.3.0"
+zeroproto = "0.4.0"
 
 [build-dependencies]
-zeroproto-compiler = "0.3.0"
+zeroproto-compiler = "0.4.0"
 ```
 
 ### Define Your Schema
