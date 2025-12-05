@@ -50,10 +50,10 @@ impl SchemaParser {
     fn tokenize(&mut self, input: &str) -> Result<()> {
         self.tokens.clear();
         self.position = 0;
-        
+
         let chars: Vec<char> = input.chars().collect();
         let mut i = 0;
-        
+
         while i < chars.len() {
             match chars[i] {
                 ' ' | '\t' | '\n' | '\r' => i += 1,
@@ -77,7 +77,7 @@ impl SchemaParser {
                         i += 1;
                     }
                     let ident: String = chars[start..i].iter().collect();
-                    
+
                     let token = match ident.as_str() {
                         "message" => Token::Message,
                         "enum" => Token::Enum,
@@ -162,7 +162,10 @@ impl SchemaParser {
                     i += 1; // Skip closing quote
                 }
                 _ => {
-                    return Err(crate::CompilerError::Parse(format!("Unexpected character: {}", chars[i])));
+                    return Err(crate::CompilerError::Parse(format!(
+                        "Unexpected character: {}",
+                        chars[i]
+                    )));
                 }
             }
         }
@@ -171,19 +174,21 @@ impl SchemaParser {
 
     fn parse(&mut self, input: &str) -> Result<Schema> {
         self.tokenize(input)?;
-        
+
         let mut items = Vec::new();
-        
+
         while !self.at_end() {
             if self.peek() == Token::Message {
                 items.push(self.parse_message()?);
             } else if self.peek() == Token::Enum {
                 items.push(self.parse_enum()?);
             } else {
-                return Err(crate::CompilerError::Parse("Expected message or enum".to_string()));
+                return Err(crate::CompilerError::Parse(
+                    "Expected message or enum".to_string(),
+                ));
             }
         }
-        
+
         Ok(Schema { items })
     }
 
@@ -191,9 +196,9 @@ impl SchemaParser {
         self.consume(Token::Message)?;
         let name = self.consume_identifier()?;
         self.consume(Token::LeftBrace)?;
-        
+
         let fields = self.parse_message_fields()?;
-        
+
         self.consume(Token::RightBrace)?;
         Ok(SchemaItem::Message(Message { name, fields }))
     }
@@ -202,12 +207,12 @@ impl SchemaParser {
         self.consume(Token::Enum)?;
         let name = self.consume_identifier()?;
         self.consume(Token::LeftBrace)?;
-        
+
         let mut variants = Vec::new();
         while !self.at_end() && self.peek() != Token::RightBrace {
             variants.push(self.parse_enum_variant()?);
         }
-        
+
         self.consume(Token::RightBrace)?;
         Ok(SchemaItem::Enum(Enum { name, variants }))
     }
@@ -216,7 +221,7 @@ impl SchemaParser {
         let name = self.consume_identifier()?;
         self.consume(Token::Colon)?;
         let field_type = self.parse_type()?;
-        
+
         // Check for optional marker (?)
         let optional = if !self.at_end() && self.peek() == Token::Question {
             self.consume(Token::Question)?;
@@ -224,7 +229,7 @@ impl SchemaParser {
         } else {
             false
         };
-        
+
         // Check for default value (= value)
         let default_value = if !self.at_end() && self.peek() == Token::Equals {
             self.consume(Token::Equals)?;
@@ -232,24 +237,26 @@ impl SchemaParser {
         } else {
             None
         };
-        
+
         self.consume(Token::Semicolon)?;
-        
-        Ok(Field { 
-            name, 
+
+        Ok(Field {
+            name,
             field_type,
             optional,
             default_value,
         })
     }
-    
+
     fn parse_default_value(&mut self) -> Result<crate::ast::DefaultValue> {
         use crate::ast::DefaultValue;
-        
+
         if self.at_end() {
-            return Err(crate::CompilerError::Parse("Expected default value".to_string()));
+            return Err(crate::CompilerError::Parse(
+                "Expected default value".to_string(),
+            ));
         }
-        
+
         match self.peek() {
             Token::Integer(val) => {
                 self.position += 1;
@@ -272,7 +279,9 @@ impl SchemaParser {
                 self.position += 1;
                 Ok(DefaultValue::String(s))
             }
-            _ => Err(crate::CompilerError::Parse("Expected default value (integer, float, bool, or string)".to_string())),
+            _ => Err(crate::CompilerError::Parse(
+                "Expected default value (integer, float, bool, or string)".to_string(),
+            )),
         }
     }
 
@@ -293,7 +302,10 @@ impl SchemaParser {
         self.consume(Token::Equals)?;
         let value = self.consume_integer()?;
         self.consume(Token::Semicolon)?;
-        Ok(EnumVariant { name, value: Some(value) })
+        Ok(EnumVariant {
+            name,
+            value: Some(value),
+        })
     }
 
     fn parse_type(&mut self) -> Result<FieldType> {
@@ -337,37 +349,49 @@ impl SchemaParser {
 
     fn consume(&mut self, expected: Token) -> Result<()> {
         if self.at_end() {
-            return Err(crate::CompilerError::Parse(format!("Expected {:?}, found end of input", expected)));
+            return Err(crate::CompilerError::Parse(format!(
+                "Expected {:?}, found end of input",
+                expected
+            )));
         }
-        
+
         let token = self.tokens[self.position].clone();
         if std::mem::discriminant(&token) == std::mem::discriminant(&expected) {
             self.position += 1;
             Ok(())
         } else {
-            Err(crate::CompilerError::Parse(format!("Expected {:?}, found {:?}", expected, token)))
+            Err(crate::CompilerError::Parse(format!(
+                "Expected {:?}, found {:?}",
+                expected, token
+            )))
         }
     }
 
     fn consume_identifier(&mut self) -> Result<String> {
         if self.at_end() {
-            return Err(crate::CompilerError::Parse("Expected identifier, found end of input".to_string()));
+            return Err(crate::CompilerError::Parse(
+                "Expected identifier, found end of input".to_string(),
+            ));
         }
-        
+
         match &self.tokens[self.position] {
             Token::Identifier(name) => {
                 self.position += 1;
                 Ok(name.clone())
             }
-            _ => Err(crate::CompilerError::Parse("Expected identifier".to_string())),
+            _ => Err(crate::CompilerError::Parse(
+                "Expected identifier".to_string(),
+            )),
         }
     }
 
     fn consume_integer(&mut self) -> Result<i64> {
         if self.at_end() {
-            return Err(crate::CompilerError::Parse("Expected integer, found end of input".to_string()));
+            return Err(crate::CompilerError::Parse(
+                "Expected integer, found end of input".to_string(),
+            ));
         }
-        
+
         match &self.tokens[self.position] {
             Token::Integer(value) => {
                 self.position += 1;
@@ -390,10 +414,10 @@ mod tests {
                 name: string;
             }
         "#;
-        
+
         let schema = parse(input).unwrap();
         assert_eq!(schema.items.len(), 1);
-        
+
         if let SchemaItem::Message(msg) = &schema.items[0] {
             assert_eq!(msg.name, "User");
             assert_eq!(msg.fields.len(), 2);
@@ -411,16 +435,16 @@ mod tests {
                 friends: [u64];
             }
         "#;
-        
+
         let schema = parse(input).unwrap();
-        
+
         if let SchemaItem::Message(msg) = &schema.items[0] {
             assert_eq!(msg.name, "User");
             assert_eq!(msg.fields.len(), 1);
-            
+
             let field = &msg.fields[0];
             assert_eq!(field.name, "friends");
-            
+
             if let FieldType::Vector(inner) = &field.field_type {
                 if let FieldType::Scalar(ScalarType::U64) = **inner {
                     // Correct
@@ -443,9 +467,9 @@ mod tests {
                 nickname: string?;
             }
         "#;
-        
+
         let schema = parse(input).unwrap();
-        
+
         if let SchemaItem::Message(msg) = &schema.items[0] {
             assert_eq!(msg.fields.len(), 2);
             assert!(!msg.fields[0].optional, "user_id should not be optional");
@@ -465,12 +489,12 @@ mod tests {
                 name: string = "default";
             }
         "#;
-        
+
         let schema = parse(input).unwrap();
-        
+
         if let SchemaItem::Message(msg) = &schema.items[0] {
             assert_eq!(msg.fields.len(), 4);
-            
+
             // Check max_retries default
             assert!(msg.fields[0].default_value.is_some());
             if let Some(crate::ast::DefaultValue::Integer(val)) = &msg.fields[0].default_value {
@@ -478,7 +502,7 @@ mod tests {
             } else {
                 panic!("Expected integer default for max_retries");
             }
-            
+
             // Check debug_mode default
             assert!(msg.fields[2].default_value.is_some());
             if let Some(crate::ast::DefaultValue::Bool(val)) = &msg.fields[2].default_value {
@@ -486,7 +510,7 @@ mod tests {
             } else {
                 panic!("Expected bool default for debug_mode");
             }
-            
+
             // Check name default
             assert!(msg.fields[3].default_value.is_some());
             if let Some(crate::ast::DefaultValue::String(val)) = &msg.fields[3].default_value {
@@ -506,13 +530,16 @@ mod tests {
                 nickname: string? = "anonymous";
             }
         "#;
-        
+
         let schema = parse(input).unwrap();
-        
+
         if let SchemaItem::Message(msg) = &schema.items[0] {
             let field = &msg.fields[0];
             assert!(field.optional, "Field should be optional");
-            assert!(field.default_value.is_some(), "Field should have default value");
+            assert!(
+                field.default_value.is_some(),
+                "Field should have default value"
+            );
         } else {
             panic!("Expected message");
         }

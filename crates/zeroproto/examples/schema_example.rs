@@ -6,13 +6,13 @@ use std::fs;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("ZeroProto Schema Example");
     println!("=========================");
-    
+
     // Create a temporary directory for our example
     let temp_dir = std::env::temp_dir().join("zeroproto_example");
     fs::create_dir_all(&temp_dir)?;
     fs::create_dir_all(temp_dir.join("schemas"))?;
     fs::create_dir_all(temp_dir.join("src"))?;
-    
+
     // Create a schema file
     let schema_content = r#"
 enum UserStatus {
@@ -49,10 +49,10 @@ enum Theme {
     Auto = 2;
 }
 "#;
-    
+
     let schema_path = temp_dir.join("schemas/user.zp");
     fs::write(&schema_path, schema_content)?;
-    
+
     // Create build.rs
     let build_rs_content = r#"
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -63,9 +63,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 "#;
-    
+
     fs::write(temp_dir.join("build.rs"), build_rs_content)?;
-    
+
     // Create Cargo.toml
     let cargo_toml_content = r#"
 [package]
@@ -79,9 +79,9 @@ zeroproto = { path = "../../crates/zeroproto" }
 [build-dependencies]
 zeroproto-compiler = { path = "../../crates/zeroproto-compiler" }
 "#;
-    
+
     fs::write(temp_dir.join("Cargo.toml"), cargo_toml_content)?;
-    
+
     // Create src/main.rs
     let main_rs_content = r#"
 mod generated;
@@ -165,40 +165,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 "#;
-    
+
     let _ = fs::write(temp_dir.join("src/main.rs"), main_rs_content);
-    
+
     println!("📁 Created example project in: {}", temp_dir.display());
-    
+
     // Now compile the schema using our compiler
     println!("\n🔧 Compiling schema...");
-    
+
     // Use the current zeroproto compiler
     std::env::set_current_dir(&temp_dir)?;
-    
+
     // Compile the schema
-    zeroproto_compiler::compile_multiple(
-        &["schemas/user.zp"],
-        "src/generated"
-    )?;
-    
+    zeroproto_compiler::compile_multiple(&["schemas/user.zp"], "src/generated")?;
+
     println!("✅ Schema compiled successfully!");
-    
+
     // Show generated code
     let generated_path = temp_dir.join("src/generated/user.rs");
     if generated_path.exists() {
         let generated_code = fs::read_to_string(&generated_path)?;
         println!("\n📄 Generated code preview (first 500 chars):");
-        println!("{}", &generated_code[..std::cmp::min(500, generated_code.len())]);
+        println!(
+            "{}",
+            &generated_code[..std::cmp::min(500, generated_code.len())]
+        );
         if generated_code.len() > 500 {
             println!("... (truncated)");
         }
     }
-    
+
     println!("\n🎯 Example completed successfully!");
     println!("   You can run the full example with:");
     println!("   cd {}", temp_dir.display());
     println!("   cargo run");
-    
+
     Ok(())
 }

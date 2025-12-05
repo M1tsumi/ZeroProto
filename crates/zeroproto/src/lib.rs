@@ -30,8 +30,6 @@
 #[cfg(feature = "std")]
 extern crate std;
 
-use core::fmt;
-
 mod builder;
 mod errors;
 mod primitives;
@@ -49,8 +47,8 @@ pub mod prelude {
     pub use crate::{
         builder::{MessageBuilder, VectorBuilder},
         errors::{Error, Result},
-        reader::{MessageReader, VectorReader},
         primitives::{Endian, PrimitiveType},
+        reader::{MessageReader, VectorReader},
         vector::Vector,
     };
 }
@@ -58,13 +56,13 @@ pub mod prelude {
 /// Core constants for ZeroProto format
 pub mod constants {
     use crate::primitives::Endian;
-    
+
     /// Maximum number of fields in a message
     pub const MAX_FIELDS: u16 = u16::MAX;
-    
+
     /// Field table entry size in bytes
     pub const FIELD_ENTRY_SIZE: usize = 5; // type_id (1) + offset (4)
-    
+
     /// Endianness used by ZeroProto (little-endian)
     pub const ENDIANNESS: Endian = Endian::Little;
 }
@@ -75,7 +73,7 @@ pub use constants::ENDIANNESS;
 pub trait ZpRead<'a>: Sized {
     /// Read this type from the given buffer at the given offset
     fn read(buf: &'a [u8], offset: usize) -> Result<Self>;
-    
+
     /// Get the size of this type in bytes
     fn size() -> usize;
 }
@@ -84,7 +82,7 @@ pub trait ZpRead<'a>: Sized {
 pub trait ZpWrite: Sized {
     /// Write this type to the given buffer at the given offset
     fn write(&self, buf: &mut [u8], offset: usize) -> Result<()>;
-    
+
     /// Get the size of this type in bytes
     fn size(&self) -> usize;
 }
@@ -99,8 +97,10 @@ macro_rules! impl_primitive_read {
                 }
                 Ok(ENDIANNESS.$read_method(buf, offset))
             }
-            
-            fn size() -> usize { $size }
+
+            fn size() -> usize {
+                $size
+            }
         }
     };
 }
@@ -116,8 +116,10 @@ macro_rules! impl_primitive_write {
                 ENDIANNESS.$write_method(*self, buf, offset);
                 Ok(())
             }
-            
-            fn size(&self) -> usize { $size }
+
+            fn size(&self) -> usize {
+                $size
+            }
         }
     };
 }

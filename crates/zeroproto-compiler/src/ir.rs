@@ -123,9 +123,10 @@ fn lower_message(message: &Message, enums: &[IrEnum]) -> IrMessage {
         .enumerate()
         .map(|(i, field)| {
             let field_type = lower_field_type(&field.field_type, enums);
-            let default_value = field.default_value.as_ref().map(|dv| {
-                lower_default_value(dv, &field.field_type)
-            });
+            let default_value = field
+                .default_value
+                .as_ref()
+                .map(|dv| lower_default_value(dv, &field.field_type));
             IrField {
                 name: field.name.clone(),
                 rust_name: to_snake_case(&field.name),
@@ -150,13 +151,17 @@ fn lower_message(message: &Message, enums: &[IrEnum]) -> IrMessage {
 /// Convert a default value to Rust code
 fn lower_default_value(default: &crate::ast::DefaultValue, _field_type: &FieldType) -> String {
     use crate::ast::DefaultValue;
-    
+
     match default {
         DefaultValue::Integer(val) => val.to_string(),
         DefaultValue::Float(val) => {
             // Ensure float literals have a decimal point
             let s = val.to_string();
-            if s.contains('.') { s } else { format!("{}.0", s) }
+            if s.contains('.') {
+                s
+            } else {
+                format!("{}.0", s)
+            }
         }
         DefaultValue::Bool(val) => val.to_string(),
         DefaultValue::String(val) => format!("\"{}\"", val),
@@ -174,7 +179,7 @@ fn lower_field_type(field_type: &FieldType, enums: &[IrEnum]) -> IrFieldType {
         FieldType::UserDefined(type_name) => {
             let rust_type = to_pascal_case(type_name);
             let is_message = !enums.iter().any(|en| en.name == *type_name);
-            
+
             IrFieldType::UserDefined {
                 type_name: type_name.clone(),
                 rust_type,
@@ -187,14 +192,20 @@ fn lower_field_type(field_type: &FieldType, enums: &[IrEnum]) -> IrFieldType {
                 IrFieldType::Scalar { rust_type, .. } => {
                     format!("VectorReader<'a, {}>", rust_type)
                 }
-                IrFieldType::UserDefined { rust_type, is_message, .. } => {
+                IrFieldType::UserDefined {
+                    rust_type,
+                    is_message,
+                    ..
+                } => {
                     if *is_message {
                         format!("VectorReader<'a, {}Reader<'a>>", rust_type)
                     } else {
                         format!("VectorReader<'a, {}>", rust_type)
                     }
                 }
-                IrFieldType::Vector { .. } => panic!("Nested vectors should have been caught by validator"),
+                IrFieldType::Vector { .. } => {
+                    panic!("Nested vectors should have been caught by validator")
+                }
             };
 
             IrFieldType::Vector {
@@ -261,11 +272,11 @@ impl IrUtils {
         schema: &'a IrSchema,
     ) -> Vec<&'a str> {
         let mut dependencies = Vec::new();
-        
+
         for field in &message.fields {
             Self::collect_field_dependencies(&field.field_type, schema, &mut dependencies);
         }
-        
+
         dependencies.sort();
         dependencies.dedup();
         dependencies
@@ -327,10 +338,7 @@ impl IrUtils {
     pub fn requires_lifetime(field_type: &IrFieldType) -> bool {
         match field_type {
             IrFieldType::Scalar { scalar_type, .. } => {
-                matches!(
-                    scalar_type,
-                    ScalarType::String | ScalarType::Bytes
-                )
+                matches!(scalar_type, ScalarType::String | ScalarType::Bytes)
             }
             IrFieldType::UserDefined { is_message, .. } => *is_message,
             IrFieldType::Vector { element_type, .. } => Self::requires_lifetime(element_type),
@@ -360,8 +368,14 @@ mod tests {
     fn test_ir_lowering() {
         let mut schema = Schema::new();
         let mut message = Message::new("user".to_string());
-        message.add_field(Field::new("id".to_string(), FieldType::Scalar(ScalarType::U64)));
-        message.add_field(Field::new("name".to_string(), FieldType::Scalar(ScalarType::String)));
+        message.add_field(Field::new(
+            "id".to_string(),
+            FieldType::Scalar(ScalarType::U64),
+        ));
+        message.add_field(Field::new(
+            "name".to_string(),
+            FieldType::Scalar(ScalarType::String),
+        ));
         schema.add_item(SchemaItem::Message(message));
 
         let ir = lower_ast(&schema);

@@ -66,6 +66,7 @@ Every field has a type ID that tells us how to read it:
 | 12 | bytes | variable | Length-prefixed raw bytes |
 | 13 | message | variable | Nested ZeroProto message |
 | 14 | vector | variable | Array of values |
+| 15 | unset | 0 bytes | Sentinel used for optional fields (field intentionally absent) |
 
 ## How Data Is Encoded
 
@@ -166,7 +167,7 @@ When reading a message, we check:
 - Field table fits in the message
 
 ### Field-Level
-- Type IDs are valid (0-14)
+- Type IDs are valid (0-15, with 15 reserved for optional-field sentinel)
 - String/vector lengths don't exceed remaining buffer
 - Nested messages are valid ZeroProto messages
 - UTF-8 strings are actually valid UTF-8

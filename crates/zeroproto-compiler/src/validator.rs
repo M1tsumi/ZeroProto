@@ -126,14 +126,14 @@ impl SchemaValidator {
             FieldType::Vector(inner) => {
                 // Validate the inner type
                 self.validate_field_type(inner)?;
-                
+
                 // Check for nested vectors (not allowed)
                 if matches!(inner.as_ref(), FieldType::Vector(_)) {
                     return Err(crate::CompilerError::Validation(
-                        "Nested vectors are not allowed".to_string()
+                        "Nested vectors are not allowed".to_string(),
                     ));
                 }
-                
+
                 Ok(())
             }
         }
@@ -194,10 +194,19 @@ impl ValidationUtils {
         match field_type {
             FieldType::Scalar(scalar) => matches!(
                 scalar,
-                ScalarType::U8 | ScalarType::U16 | ScalarType::U32 | ScalarType::U64 |
-                ScalarType::I8 | ScalarType::I16 | ScalarType::I32 | ScalarType::I64 |
-                ScalarType::F32 | ScalarType::F64 | ScalarType::Bool |
-                ScalarType::String | ScalarType::Bytes
+                ScalarType::U8
+                    | ScalarType::U16
+                    | ScalarType::U32
+                    | ScalarType::U64
+                    | ScalarType::I8
+                    | ScalarType::I16
+                    | ScalarType::I32
+                    | ScalarType::I64
+                    | ScalarType::F32
+                    | ScalarType::F64
+                    | ScalarType::Bool
+                    | ScalarType::String
+                    | ScalarType::Bytes
             ),
             FieldType::UserDefined(_) => true, // Will be validated elsewhere
             FieldType::Vector(inner) => Self::is_zero_copy_compatible(inner),
@@ -238,8 +247,14 @@ mod tests {
     fn test_valid_message() {
         let mut schema = Schema::new();
         let mut message = Message::new("User".to_string());
-        message.add_field(Field::new("user_id".to_string(), FieldType::Scalar(ScalarType::U64)));
-        message.add_field(Field::new("name".to_string(), FieldType::Scalar(ScalarType::String)));
+        message.add_field(Field::new(
+            "user_id".to_string(),
+            FieldType::Scalar(ScalarType::U64),
+        ));
+        message.add_field(Field::new(
+            "name".to_string(),
+            FieldType::Scalar(ScalarType::String),
+        ));
         schema.add_item(SchemaItem::Message(message));
 
         assert!(validate(&schema).is_ok());
@@ -258,7 +273,10 @@ mod tests {
     fn test_unknown_field_type() {
         let mut schema = Schema::new();
         let mut message = Message::new("User".to_string());
-        message.add_field(Field::new("profile".to_string(), FieldType::UserDefined("Profile".to_string())));
+        message.add_field(Field::new(
+            "profile".to_string(),
+            FieldType::UserDefined("Profile".to_string()),
+        ));
         schema.add_item(SchemaItem::Message(message));
 
         assert!(validate(&schema).is_err());
@@ -269,7 +287,7 @@ mod tests {
         let mut schema = Schema::new();
         let mut message = Message::new("User".to_string());
         let nested_vector = FieldType::Vector(Box::new(FieldType::Vector(Box::new(
-            FieldType::Scalar(ScalarType::U64)
+            FieldType::Scalar(ScalarType::U64),
         ))));
         message.add_field(Field::new("bad_field".to_string(), nested_vector));
         schema.add_item(SchemaItem::Message(message));

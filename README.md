@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-APACHE)
 [![Discord](https://img.shields.io/discord/1302036475148349453?label=Discord&logo=discord)](https://discord.gg/6nS2KqxQtj)
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/quefep)
 
 Hey there! If you're tired of slow serialization eating into your app's performance, you're in the right place. ZeroProto is a **zero-copy binary serialization library** built from the ground up for Rust developers who care about speed.
 
@@ -187,6 +188,36 @@ Each field entry contains:
 
 The CLI makes working with schemas a breeze.
 
+### Inspecting & Filtering Schemas
+
+Need a quick snapshot of what’s inside a schema tree? Pair `--include/--exclude` with the new `inspect` command to slice data any way you like:
+
+```bash
+# Only look at schemas for tenant-a while skipping deprecated folders
+zeroproto inspect schemas/ \
+    --include "tenants/tenant-a/**/*.zp" \
+    --exclude "**/deprecated/**" \
+    --verbose
+```
+
+Example output:
+
+```
+📄 schemas/tenants/tenant-a/profile.zp
+   Messages: 3 | Enums: 1
+   Fields: 18 (optional 6, defaults 4, vectors 3)
+     • msg Profile — fields: 7, optional: 2, defaults: 1, vectors: 1
+     • enum Theme — variants: 3
+
+📊 Inspection Summary
+   Files: 2
+   Messages: 5
+   Enums: 2
+   Fields: 31 (optional 9, defaults 6, vectors 5)
+```
+
+The same filters apply to `compile`, `watch`, and `check`, and every run prints which files were included vs skipped so you can validate coverage in large workspaces.
+
 ### Compiling Schemas
 
 ```bash
@@ -201,6 +232,12 @@ zeroproto watch schemas/ --output src/generated
 
 # Just validate without generating code
 zeroproto check schemas/
+
+# Filter large schema trees (glob patterns are relative to the input root)
+zeroproto compile schemas/ --include "tenantA/**/*.zp" --exclude "**/legacy.zp"
+
+# Summarize schema structure without generating code
+zeroproto inspect schemas/ --verbose
 
 # Scaffold a new project
 zeroproto init my-project

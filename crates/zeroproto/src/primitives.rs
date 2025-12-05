@@ -45,6 +45,8 @@ pub enum PrimitiveType {
     Message = 13,
     /// Vector of values
     Vector = 14,
+    /// Sentinel for unset/absent fields
+    Unset = 255,
 }
 
 impl PrimitiveType {
@@ -62,7 +64,11 @@ impl PrimitiveType {
             PrimitiveType::F32 => Some(4),
             PrimitiveType::F64 => Some(8),
             PrimitiveType::Bool => Some(1),
-            PrimitiveType::String | PrimitiveType::Bytes | PrimitiveType::Message | PrimitiveType::Vector => None,
+            PrimitiveType::String
+            | PrimitiveType::Bytes
+            | PrimitiveType::Message
+            | PrimitiveType::Vector
+            | PrimitiveType::Unset => None,
         }
     }
 
@@ -84,6 +90,7 @@ impl PrimitiveType {
             12 => Some(PrimitiveType::Bytes),
             13 => Some(PrimitiveType::Message),
             14 => Some(PrimitiveType::Vector),
+            255 => Some(PrimitiveType::Unset),
             _ => None,
         }
     }
@@ -122,12 +129,10 @@ impl Endian {
         let bytes = &buf[offset..offset + 8];
         match self {
             Endian::Little => u64::from_le_bytes([
-                bytes[0], bytes[1], bytes[2], bytes[3],
-                bytes[4], bytes[5], bytes[6], bytes[7],
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             ]),
             Endian::Big => u64::from_be_bytes([
-                bytes[0], bytes[1], bytes[2], bytes[3],
-                bytes[4], bytes[5], bytes[6], bytes[7],
+                bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             ]),
         }
     }

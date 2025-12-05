@@ -1,5 +1,6 @@
 //! Vector handling utilities
 
+#[cfg(test)]
 use crate::{errors::Result, ZpRead, ZpWrite};
 
 #[cfg(not(feature = "std"))]
@@ -23,12 +24,16 @@ pub struct Vector<T> {
 impl<T> Vector<T> {
     /// Create a new empty vector
     pub fn new() -> Self {
-        Self { elements: Vec::new() }
+        Self {
+            elements: Vec::new(),
+        }
     }
 
     /// Create a vector with the given capacity
     pub fn with_capacity(capacity: usize) -> Self {
-        Self { elements: Vec::with_capacity(capacity) }
+        Self {
+            elements: Vec::with_capacity(capacity),
+        }
     }
 
     /// Get the number of elements in the vector
@@ -42,12 +47,12 @@ impl<T> Vector<T> {
     }
 
     /// Get an iterator over the elements
-    pub fn iter(&self) -> core::slice::Iter<T> {
+    pub fn iter(&self) -> core::slice::Iter<'_, T> {
         self.elements.iter()
     }
 
     /// Get a mutable iterator over the elements
-    pub fn iter_mut(&mut self) -> core::slice::IterMut<T> {
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, T> {
         self.elements.iter_mut()
     }
 
@@ -165,13 +170,17 @@ impl<T> FromIterator<T> for Vector<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        Self { elements: iter.into_iter().collect() }
+        Self {
+            elements: iter.into_iter().collect(),
+        }
     }
 }
 
 /// Utilities for working with vectors in ZeroProto buffers
+#[cfg(test)]
 pub struct VectorUtils;
 
+#[cfg(test)]
 impl VectorUtils {
     /// Calculate the total size needed to serialize a vector
     pub fn calculate_serialized_size<T: ZpWrite>(elements: &[T]) -> usize {
@@ -189,17 +198,17 @@ impl VectorUtils {
         offset: usize,
     ) -> Result<usize> {
         let count = elements.len();
-        
+
         // Write count
         crate::primitives::Endian::Little.write_u32(count as u32, buffer, offset);
         let mut current_offset = offset + 4;
-        
+
         // Write elements
         for element in elements {
             element.write(buffer, current_offset)?;
             current_offset += element.size();
         }
-        
+
         Ok(current_offset - offset)
     }
 
@@ -211,7 +220,7 @@ impl VectorUtils {
         // Read count
         let count = crate::primitives::Endian::Little.read_u32(buffer, offset) as usize;
         let mut current_offset = offset + 4;
-        
+
         // Read elements
         let mut elements = Vec::with_capacity(count);
         for _ in 0..count {
@@ -219,7 +228,7 @@ impl VectorUtils {
             elements.push(element);
             current_offset += T::size();
         }
-        
+
         Ok((elements, current_offset - offset))
     }
 }
@@ -229,7 +238,7 @@ mod tests {
     use super::*;
     use crate::builder::MessageBuilder;
     use crate::reader::MessageReader;
-    
+
     #[cfg(feature = "std")]
     use std::vec;
 
@@ -251,7 +260,7 @@ mod tests {
     #[test]
     fn test_vector_iteration() {
         let vec = Vector::from(vec![1, 2, 3, 4, 5]);
-        
+
         let collected: Vec<_> = vec.iter().copied().collect();
         assert_eq!(collected, vec![1, 2, 3, 4, 5]);
     }

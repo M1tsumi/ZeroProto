@@ -188,8 +188,8 @@ impl Message {
 impl Field {
     /// Create a new field
     pub fn new(name: String, field_type: FieldType) -> Self {
-        Self { 
-            name, 
+        Self {
+            name,
             field_type,
             optional: false,
             default_value: None,
@@ -250,7 +250,10 @@ impl EnumVariant {
 
     /// Create a new variant with an explicit value
     pub fn with_value(name: String, value: i64) -> Self {
-        Self { name, value: Some(value) }
+        Self {
+            name,
+            value: Some(value),
+        }
     }
 }
 

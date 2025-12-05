@@ -46,6 +46,21 @@ Boom! You've got a working project with:
 - `schemas/` - A place for your `.zp` files
 - `src/main.rs` - A working example to play with
 
+Need to manage a giant schema tree? Every CLI command (`compile`, `watch`, `check`, `inspect`) now accepts the same filtering flags:
+
+```bash
+# Only compile tenant A
+zeroproto compile schemas/ --include "tenants/a/**/*.zp"
+
+# Skip a legacy folder everywhere
+zeroproto watch schemas/ --exclude "**/legacy/**"
+
+# Print stats instead of generating code
+zeroproto inspect schemas/ --verbose
+```
+
+Includes/excludes are glob patterns resolved relative to the input path, and the CLI always prints which files were included or skipped so you can double-check coverage.
+
 ## The Big Idea
 
 ### What Makes Zero-Copy Special?
@@ -366,9 +381,14 @@ message User {
 ```rust
 let user = UserReader::from_slice(&data)?;
 
-// Optional fields return Option<Result<T>>
-if let Some(nickname) = user.nickname() {
-    println!("Nickname: {}", nickname?);
+// Optional fields return Result<Option<T>>
+if let Some(nickname) = user.nickname()? {
+    println!("Nickname: {}", nickname);
+}
+
+// Or check first
+if user.has_nickname()? {
+    println!("Nickname set!");
 }
 ```
 
@@ -584,17 +604,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn create_user() -> Vec<u8> {
     let mut builder = UserBuilder::new();
-    builder.set_user_id(42);
-    builder.set_username("alice");
+    builder.set_user_id(12345);
+    builder.set_name("Alice");
     builder.set_email("alice@example.com");
-    builder.set_status(Status::Active);
+
+    // Optionals get ergonomic setters
+    builder.set_optional_nickname(Some("ally"));
+    builder.clear_nickname(); // removes the field
+    
+    let mut friends = vec![1001, 1002, 1003];
+    builder.set_friends(&friends);
+
     builder.set_tags(&["rust", "zeroproto", "speed"]);
     builder.finish()
 }
 
 fn print_user(user: &UserReader) -> Result<(), zeroproto::Error> {
     println!("User #{}", user.user_id()?);
-    println!("  Name: {}", user.username()?);
+    println!("  Name: {}", user.name()?);
     println!("  Email: {}", user.email()?);
     println!("  Status: {:?}", user.status()?);
     

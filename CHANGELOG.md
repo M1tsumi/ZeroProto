@@ -4,6 +4,20 @@ Hey! Here's what's been happening with ZeroProto. We try to keep this updated so
 
 We follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-05
+
+### Added
+
+- **Optional Field Ergonomics** – Runtime readers/builders now understand a dedicated `PrimitiveType::Unset` sentinel so `?` fields turn into idiomatic `Option<T>` accessors. Accessing a missing field directly produces the new `Error::MissingField`.
+- **Field Presence APIs** – `MessageReader::has_field`, `try_get_*`, and default-aware helpers make it trivial to check whether data was set or falls back to schema defaults.
+- **Builder Quality-of-Life** – Generated builders gained `set_optional_*`/`clear_*` helpers, and the core builder defers slot allocation until a field is actually written.
+- **Schema Insights CLI** – `zeroproto inspect` parses schemas and prints per-message/enum stats (messages, enums, optional/default/vector counts) with the same include/exclude filters used elsewhere.
+
+### Changed
+
+- **CLI Selective Compilation** – `compile`, `watch`, `check`, and `inspect` all accept unified `--include`/`--exclude` glob filters and print summaries of included vs skipped files, making large schema projects easier to manage.
+- **Documentation & Examples** – README, tutorial, specifications, and sample projects now highlight the optional-field workflow, builder helpers, and filtered CLI usage.
+
 ## [0.3.0] - 2025-12-02
 
 This is a big one! We've been working hard on making ZeroProto more flexible and powerful while keeping the blazing-fast performance you love.

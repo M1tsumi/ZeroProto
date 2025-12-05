@@ -23,6 +23,8 @@ pub enum Error {
     InvalidFormat,
     /// Invalid message format
     InvalidMessage,
+    /// Requested field is not present in the buffer
+    MissingField,
     /// Custom error message
     Custom(String),
 }
@@ -35,6 +37,7 @@ impl core::fmt::Display for Error {
             Error::InvalidUtf8 => write!(f, "Invalid UTF-8 string"),
             Error::InvalidFormat => write!(f, "Invalid data format"),
             Error::InvalidMessage => write!(f, "Invalid message format"),
+            Error::MissingField => write!(f, "Field not present"),
             Error::Custom(msg) => write!(f, "{}", msg),
         }
     }
